@@ -14,6 +14,7 @@ import {
   Pencil,
   X,
   AlertTriangle,
+  AlertCircle,
   Check,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -44,6 +45,12 @@ export default function SOPDetailPage({ params }: { params: Promise<{ id: string
   const printRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const showError = (msg: string) => {
+    setErrorMessage(msg);
+    setTimeout(() => setErrorMessage(''), 8000);
+  };
 
   useEffect(() => {
     fetchSOP();
@@ -91,7 +98,7 @@ export default function SOPDetailPage({ params }: { params: Promise<{ id: string
       const res = await fetch(`/api/sop/${id}`, { method: 'DELETE' });
       if (res.ok) router.push('/dashboard/sops');
     } catch {
-      alert('Failed to delete SOP');
+      showError('Failed to delete SOP. Please try again.');
     } finally {
       setDeleting(false);
       setShowDeleteModal(false);
@@ -157,7 +164,7 @@ export default function SOPDetailPage({ params }: { params: Promise<{ id: string
         setTimeout(() => setSaveStatus('idle'), 2000);
       }
     } catch {
-      alert('Failed to save title');
+      showError('Failed to save title. Please try again.');
     } finally {
       setAutoSaving(false);
       setEditingTitle(false);
@@ -241,7 +248,7 @@ export default function SOPDetailPage({ params }: { params: Promise<{ id: string
       await html2pdf().set(opt).from(container).save();
     } catch (error) {
       console.error('PDF download error:', error);
-      alert('Failed to generate PDF. Please try again.');
+      showError('Failed to generate PDF. Please try again.');
     } finally {
       setDownloading(false);
     }
@@ -249,11 +256,13 @@ export default function SOPDetailPage({ params }: { params: Promise<{ id: string
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 text-violet-400 animate-spin" />
-          <p className="text-slate-400">{t.common.loading}</p>
+      <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
+        <div className="flex items-center gap-4">
+          <div className="h-10 w-10 bg-white/5 rounded-xl animate-pulse" />
+          <div className="h-10 w-64 bg-white/5 rounded-xl animate-pulse" />
         </div>
+        <div className="h-32 bg-white/5 rounded-2xl animate-pulse" />
+        <div className="h-150 bg-white/2 rounded-2xl animate-pulse" />
       </div>
     );
   }
@@ -266,119 +275,149 @@ export default function SOPDetailPage({ params }: { params: Promise<{ id: string
     );
   }
 
+  const displayBusinessName = sop.businessName || '-';
+
   return (
     <>
       <div className="max-w-5xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="space-y-4">
-          <div className="flex items-start gap-4">
-            <Link
-              href="/dashboard/sops"
-              className="h-10 w-10 shrink-0 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+        {/* Error Banner */}
+        {errorMessage && (
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300">
+            <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
+            <p className="text-sm flex-1">{errorMessage}</p>
+            <button
+              onClick={() => setErrorMessage('')}
+              className="shrink-0 hover:text-white transition-colors"
             >
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-            <div className="flex-1 min-w-0">
-              {/* Editable Title */}
-              {editingTitle ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={titleInputRef}
-                    type="text"
-                    value={editedTitle}
-                    onChange={e => setEditedTitle(e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter') handleSaveTitle();
-                      if (e.key === 'Escape') {
-                        setEditedTitle(sop.title);
-                        setEditingTitle(false);
-                      }
-                    }}
-                    className="flex-1 text-xl sm:text-2xl font-bold text-white bg-white/5 border border-violet-500/50 rounded-lg px-3 py-1.5 outline-none focus:border-violet-400 transition-colors"
-                  />
-                  <button
-                    onClick={handleSaveTitle}
-                    disabled={autoSaving}
-                    className="h-9 w-9 shrink-0 rounded-lg bg-violet-600 hover:bg-violet-500 flex items-center justify-center text-white transition-colors"
-                  >
-                    {autoSaving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Check className="h-4 w-4" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditedTitle(sop.title);
-                      setEditingTitle(false);
-                    }}
-                    className="h-9 w-9 shrink-0 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="group flex items-start gap-2">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+        {/* Header & Sticky Actions Row */}
+        <div className="sticky top-16 z-30 pt-4 pb-2 -mt-4 bg-slate-900/60 backdrop-blur-md">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4 min-w-0">
+              <Link
+                href="/dashboard/sops"
+                className="h-10 w-10 shrink-0 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+              <div className="min-w-0">
+                {editingTitle ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={titleInputRef}
+                      type="text"
+                      value={editedTitle}
+                      onChange={e => setEditedTitle(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleSaveTitle();
+                        if (e.key === 'Escape') {
+                          setEditedTitle(sop.title);
+                          setEditingTitle(false);
+                        }
+                      }}
+                      className="text-lg sm:text-xl font-bold text-white bg-white/5 border border-violet-500/50 rounded-lg px-3 py-1 outline-none focus:border-violet-400"
+                    />
+                    <button
+                      onClick={handleSaveTitle}
+                      disabled={autoSaving}
+                      className="h-8 w-8 rounded-lg bg-violet-600 text-white flex items-center justify-center"
+                    >
+                      {autoSaving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Check className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                ) : (
                   <h1
-                    className="text-xl sm:text-2xl font-bold text-white leading-snug cursor-pointer hover:text-violet-300 transition-colors"
+                    className="text-lg sm:text-xl font-bold text-white truncate cursor-pointer hover:text-violet-300"
                     onClick={() => setEditingTitle(true)}
-                    title={t.sopDetail.clickToEdit}
                   >
                     {sop.title}
                   </h1>
-                  <button
-                    onClick={() => setEditingTitle(true)}
-                    className="mt-1.5 opacity-0 group-hover:opacity-100 transition-opacity text-slate-500 hover:text-violet-400"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              )}
-
-              <div className="flex flex-wrap items-center gap-3 sm:gap-4 mt-2 text-sm text-slate-400">
-                <span className="flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5" />
-                  {new Date(sop.createdAt).toLocaleDateString()}
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <User className="h-3.5 w-3.5" />
-                  {sop.user.name}
-                </span>
-                <span
-                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    sop.type === 'NEW'
-                      ? 'bg-violet-500/20 text-violet-300'
-                      : 'bg-indigo-500/20 text-indigo-300'
-                  }`}
-                >
-                  {sop.type === 'NEW' ? 'New' : 'Modified'}
-                </span>
+                )}
               </div>
             </div>
-          </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-3 pl-14">
-            <button
-              onClick={handleDownloadPDF}
-              disabled={downloading}
-              className="btn-primary flex items-center gap-2 text-sm px-5 py-2.5"
-            >
-              {downloading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              {t.sopDetail.downloadPdf}
-            </button>
-            <button
-              onClick={() => setShowDeleteModal(true)}
-              disabled={deleting}
-              className="btn-danger flex items-center gap-2 text-sm px-5 py-2.5"
-            >
-              <Trash2 className="h-4 w-4" />
-              {t.common.delete}
-            </button>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <button
+                onClick={handleDownloadPDF}
+                disabled={downloading}
+                className="flex-1 sm:flex-none h-10 px-5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-lg shadow-violet-600/20"
+              >
+                {downloading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                <span className="hidden sm:inline">{t.sopDetail.downloadPdf}</span>
+              </button>
+              <button
+                onClick={() => setShowDeleteModal(true)}
+                className="h-10 w-10 shrink-0 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 flex items-center justify-center transition-all"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Info Card */}
+        <div className="relative overflow-hidden rounded-2xl border border-white/10 p-6">
+          <div className="absolute inset-0 bg-linear-to-br from-violet-500/5 via-transparent to-indigo-500/5" />
+          <div className="relative z-10 flex flex-wrap items-center gap-8">
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                {t.dashboard.stats?.total || 'SOP Type'}
+              </p>
+              <div className="flex items-center gap-2">
+                <div
+                  className={`h-2 w-2 rounded-full ${sop.type === 'NEW' ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]' : 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.5)]'}`}
+                />
+                <p className="text-white font-semibold">
+                  {sop.type === 'NEW' ? 'New Document' : 'Modified Content'}
+                </p>
+              </div>
+            </div>
+
+            <div className="w-px h-8 bg-white/10 hidden sm:block" />
+
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Business Name
+              </p>
+              <p className="text-white font-semibold">{displayBusinessName}</p>
+            </div>
+
+            <div className="w-px h-8 bg-white/10 hidden sm:block" />
+
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Created Date
+              </p>
+              <div className="flex items-center gap-2 text-white font-semibold">
+                <Calendar className="h-4 w-4 text-slate-400" />
+                {new Date(sop.createdAt).toLocaleDateString()}
+              </div>
+            </div>
+
+            <div className="w-px h-8 bg-white/10 hidden sm:block" />
+
+            <div className="space-y-1">
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                Generator
+              </p>
+              <div className="flex items-center gap-2 text-white font-semibold">
+                <div className="h-5 w-5 rounded-full bg-violet-500/20 border border-violet-500/30 flex items-center justify-center text-[10px] text-violet-400 uppercase">
+                  {sop.user.name.charAt(0)}
+                </div>
+                {sop.user.name}
+              </div>
+            </div>
           </div>
         </div>
 

@@ -40,7 +40,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!session || session.user.role !== 'ADMIN') return null;
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-slate-900 flex flex-col">
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-amber-500/20 bg-slate-900/90 backdrop-blur-xl">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
@@ -79,7 +79,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </nav>
 
-      <main className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">{children}</main>
+      <main className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto flex-1 w-full">
+        {children}
+      </main>
+      <footer className="border-t border-white/5 py-4">
+        <p className="text-center text-xs text-slate-500">© 2026 SOP Generator</p>
+      </footer>
     </div>
   );
 }

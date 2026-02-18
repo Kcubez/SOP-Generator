@@ -71,14 +71,28 @@ const en = {
     welcome: 'Welcome back,',
     description:
       'Create professional Standard Operating Procedures or modify existing ones with AI-powered assistance.',
+    greetingMorning: 'Good morning',
+    greetingAfternoon: 'Good afternoon',
+    greetingEvening: 'Good evening',
+    quickActions: 'Quick Actions',
+    recentTitle: 'Recent SOPs',
+    viewAll: 'View All',
+    noSops: 'No SOPs yet',
+    noSopsDesc: 'Create your first SOP to get started',
+    stats: {
+      total: 'Total SOPs',
+      created: 'New',
+      modified: 'Modified',
+      powered: 'Powered By',
+    },
     generateCard: {
       title: 'Generate New SOP',
-      desc: 'Create a comprehensive Standard Operating Procedure from scratch. Fill in your business requirements and let AI generate a professional SOP document.',
+      desc: 'Create a comprehensive SOP from scratch with AI assistance.',
       tags: ['Business Info', 'Stakeholders', 'Procedures', 'KPIs'],
     },
     modifyCard: {
       title: 'Modify Existing SOP',
-      desc: 'Upload your existing SOP document, describe the problems or changes needed, and let AI generate an improved version with smart suggestions.',
+      desc: 'Upload and improve your existing SOP with AI suggestions.',
       tags: ['Upload SOP', 'AI Analysis', 'Suggestions'],
     },
     features: {
@@ -219,6 +233,8 @@ const en = {
     orUpload: 'Or upload a file',
     dropHere: 'Drop your file here or click to browse',
     supportedFormats: 'Supported: .pdf, .doc, .docx',
+    businessName: 'Business Name',
+    businessNamePlaceholder: 'e.g., Golden Star Co., Ltd.',
   },
 
   // SOP List

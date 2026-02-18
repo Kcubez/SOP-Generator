@@ -16,7 +16,7 @@ import {
   EyeOff,
   Check,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -31,6 +31,11 @@ export default function Navbar() {
   const [savingKey, setSavingKey] = useState(false);
   const [maskedKey, setMaskedKey] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+
+  useEffect(() => {
+    fetchApiKeyStatus();
+  }, [session]);
 
   if (!session) return null;
 
@@ -125,29 +130,70 @@ export default function Navbar() {
             </div>
 
             {/* User Section */}
-            <div className="hidden md:flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-4">
               <LanguageSwitcher />
-              <button
-                onClick={openApiKeyModal}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-violet-500/30 bg-violet-500/10 text-violet-300 hover:bg-violet-500/20 hover:border-violet-500/50 transition-all duration-200"
-                title={t.nav.changeApiKey}
-              >
-                <Key className="h-3.5 w-3.5" />
-                <span className="hidden lg:inline">{t.nav.changeApiKey}</span>
-              </button>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10">
-                <div className="h-6 w-6 rounded-full bg-linear-to-br from-violet-400 to-indigo-500 flex items-center justify-center text-[10px] font-bold text-white">
-                  {session.user.name?.charAt(0).toUpperCase()}
-                </div>
-                <span className="text-sm text-slate-300">{session.user.name}</span>
+
+              <div className="relative">
+                <button
+                  onClick={() => setProfileOpen(!profileOpen)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 hover:border-violet-500/30 transition-all active:scale-95"
+                >
+                  <div className="h-7 w-7 rounded-full bg-linear-to-br from-violet-400 to-indigo-500 flex items-center justify-center text-[10px] font-bold text-white shadow-lg shadow-violet-500/20">
+                    {session.user.name?.charAt(0).toUpperCase()}
+                  </div>
+                  <span className="text-sm font-medium text-slate-300 group-hover:text-white">
+                    {session.user.name}
+                  </span>
+                </button>
+
+                {profileOpen && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+                    <div className="absolute right-0 mt-3 w-56 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="glass-card overflow-hidden border-white/10 shadow-2xl">
+                        <div className="px-4 py-3 border-b border-white/5 bg-white/5">
+                          <p className="text-sm font-semibold text-white">{session.user.name}</p>
+                          <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                            {session.user.email}
+                          </p>
+                        </div>
+
+                        <div className="p-1.5">
+                          <button
+                            onClick={() => {
+                              openApiKeyModal();
+                              setProfileOpen(false);
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-all text-left"
+                          >
+                            <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                              <Key className="h-4 w-4 text-violet-400" />
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-xs">Gemini API Key</p>
+                              <p className="text-[10px] text-slate-500">
+                                {maskedKey ? 'Update Key' : 'Not Connected'}
+                              </p>
+                            </div>
+                          </button>
+                        </div>
+
+                        <div className="p-1.5 border-t border-white/5">
+                          <button
+                            onClick={() => signOut({ callbackUrl: '/login' })}
+                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all text-left"
+                          >
+                            <div className="h-8 w-8 rounded-lg bg-red-500/10 flex items-center justify-center">
+                              <LogOut className="h-4 w-4" />
+                            </div>
+                            <span className="font-medium text-xs">{t.common.signOut}</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
-              <button
-                onClick={() => signOut({ callbackUrl: '/login' })}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200"
-                title={t.common.signOut}
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
             </div>
 
             {/* Mobile menu button */}

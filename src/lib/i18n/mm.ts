@@ -73,14 +73,28 @@ const mm: Translations = {
     welcome: 'ပြန်လည်ကြိုဆိုပါတယ်',
     description:
       'AI အကူအညီဖြင့် ပရော်ဖက်ရှင်နယ် Standard Operating Procedures များကို ရေးဆွဲခြင်း သို့မဟုတ် ပြင်ဆင်ခြင်း ပြုလုပ်နိုင်ပါသည်။',
+    greetingMorning: 'မင်္ဂလာနံနက်ခင်းပါ',
+    greetingAfternoon: 'မင်္ဂလာနေ့လည်ခင်းပါ',
+    greetingEvening: 'မင်္ဂလာညနေခင်းပါ',
+    quickActions: 'အမြန်လုပ်ဆောင်ချက်များ',
+    recentTitle: 'မကြာသေးမီ SOPs',
+    viewAll: 'အားလုံးကြည့်ရန်',
+    noSops: 'SOP များ မရှိသေးပါ',
+    noSopsDesc: 'ပထမဆုံး SOP ကို ရေးဆွဲပါ',
+    stats: {
+      total: 'စုစုပေါင်း SOPs',
+      created: 'အသစ်',
+      modified: 'ပြုပြင်ပြီး',
+      powered: 'Powered By',
+    },
     generateCard: {
       title: 'SOP အသစ် ရေးဆွဲမည်',
-      desc: 'သင့်လုပ်ငန်းလိုအပ်ချက်များ ဖြည့်သွင်းပြီး AI က ပရော်ဖက်ရှင်နယ် SOP စာရွက်စာတမ်းကို ရေးဆွဲပေးပါမည်။',
+      desc: 'AI အကူအညီဖြင့် SOP စာရွက်စာတမ်းကို ရေးဆွဲပါ။',
       tags: ['လုပ်ငန်းအချက်အလက်', 'ပါဝင်သူများ', 'လုပ်ငန်းစဉ်', 'KPIs'],
     },
     modifyCard: {
       title: 'ရှိပြီးသား SOP ပြင်ဆင်မည်',
-      desc: 'ရှိပြီးသား SOP ကို တင်ပါ၊ ပြင်ဆင်ရန် လိုအပ်သည်များကို ဖော်ပြပါ၊ AI က ပိုကောင်းသော ဗားရှင်းကို ရေးဆွဲပေးပါမည်။',
+      desc: 'ရှိပြီးသား SOP ကို AI အကြံပြုချက်ဖြင့် ပိုကောင်းအောင် ပြင်ဆင်ပါ။',
       tags: ['SOP တင်ရန်', 'AI ခွဲခြမ်းစိတ်ဖြာ', 'အကြံပြုချက်'],
     },
     features: {
@@ -221,6 +235,8 @@ const mm: Translations = {
     orUpload: 'သို့မဟုတ် ဖိုင်တင်ရန်',
     dropHere: 'ဖိုင်ကို ဒီမှာ ချထားပါ သို့မဟုတ် ရွေးပါ',
     supportedFormats: 'ပံ့ပိုးမှု: .pdf, .doc, .docx',
+    businessName: 'လုပ်ငန်းအမည်',
+    businessNamePlaceholder: 'ဥပမာ - Golden Star Co., Ltd.',
   },
 
   // SOP List

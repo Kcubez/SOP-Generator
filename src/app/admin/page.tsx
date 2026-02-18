@@ -14,6 +14,7 @@ import {
   EyeOff,
   Search,
   FileText,
+  AlertCircle,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -44,6 +45,12 @@ export default function AdminDashboardPage() {
   const [createError, setCreateError] = useState('');
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const showError = (msg: string) => {
+    setErrorMessage(msg);
+    setTimeout(() => setErrorMessage(''), 8000);
+  };
 
   useEffect(() => {
     fetchUsers();
@@ -107,7 +114,7 @@ export default function AdminDashboardPage() {
       });
       if (res.ok) setUsers(prev => prev.map(u => (u.id === userId ? { ...u, role } : u)));
     } catch {
-      alert(t.admin.failedUpdate);
+      showError(t.admin.failedUpdate);
     } finally {
       setUpdatingId(null);
     }
@@ -121,10 +128,10 @@ export default function AdminDashboardPage() {
       if (res.ok) setUsers(prev => prev.filter(u => u.id !== userId));
       else {
         const data = await res.json();
-        alert(data.error || t.admin.failedDelete);
+        showError(data.error || t.admin.failedDelete);
       }
     } catch {
-      alert(t.admin.failedDelete);
+      showError(t.admin.failedDelete);
     } finally {
       setDeletingId(null);
     }
@@ -152,6 +159,19 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Error Banner */}
+      {errorMessage && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300">
+          <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
+          <p className="text-sm flex-1">{errorMessage}</p>
+          <button
+            onClick={() => setErrorMessage('')}
+            className="shrink-0 hover:text-white transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div
         className="relative overflow-hidden glass-card p-8"

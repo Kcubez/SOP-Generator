@@ -4,6 +4,7 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import Navbar from '@/components/Navbar';
+import BottomNav from '@/components/BottomNav';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
@@ -29,11 +30,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!session) return null;
 
   return (
-    <div className="min-h-screen bg-slate-900">
+    <div className="min-h-screen bg-slate-900 flex flex-col">
       <Navbar />
-      <main className="pt-16">
+      <main className="pt-16 flex-1 pb-20 md:pb-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8">{children}</div>
       </main>
+      <BottomNav />
+      <footer className="border-t border-white/5 py-4 hidden md:block">
+        <p className="text-center text-xs text-slate-500">© 2026 SOP Generator</p>
+      </footer>
     </div>
   );
 }

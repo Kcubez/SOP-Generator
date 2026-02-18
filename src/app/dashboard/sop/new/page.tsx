@@ -17,6 +17,8 @@ import {
   Loader2,
   Sparkles,
   Check,
+  AlertCircle,
+  X,
 } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -26,6 +28,7 @@ export default function NewSOPPage() {
   const { t } = useLanguage();
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
   const [formData, setFormData] = useState({
     businessName: '',
     businessType: '',
@@ -53,6 +56,11 @@ export default function NewSOPPage() {
     inductionProcess: '',
     updateNotification: '',
   });
+
+  const showError = (msg: string) => {
+    setErrorMessage(msg);
+    setTimeout(() => setErrorMessage(''), 8000);
+  };
 
   const steps = [
     {
@@ -156,6 +164,7 @@ export default function NewSOPPage() {
   const handleSubmit = async () => {
     if (!isFormComplete()) return;
     setLoading(true);
+    setErrorMessage('');
     try {
       const res = await fetch('/api/sop', {
         method: 'POST',
@@ -168,17 +177,17 @@ export default function NewSOPPage() {
       } else {
         const errCode = data.error;
         if (errCode === 'NO_API_KEY') {
-          alert(t.apiErrors.noApiKey);
+          showError(t.apiErrors.noApiKey);
         } else if (errCode === 'API_LIMIT_REACHED') {
-          alert(t.apiErrors.limitReached);
+          showError(t.apiErrors.limitReached);
         } else if (errCode === 'INVALID_API_KEY') {
-          alert(t.apiErrors.invalidKey);
+          showError(t.apiErrors.invalidKey);
         } else {
-          alert(data.message || 'Failed to generate SOP');
+          showError(data.message || 'Failed to generate SOP. Please try again.');
         }
       }
     } catch {
-      alert('An error occurred while generating the SOP');
+      showError('A network error occurred. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -332,7 +341,33 @@ export default function NewSOPPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 relative">
+      {/* Generation Progress Bar */}
+      {loading && (
+        <div className="fixed top-0 left-0 right-0 z-100 h-1.5 bg-slate-900">
+          <div className="h-full bg-linear-to-right from-violet-500 via-fuchsia-500 to-indigo-500 bg-size-[200%_100%] animate-gradient-x animate-progress-glow relative">
+            <div className="absolute inset-0 shadow-[0_0_15px_rgba(139,92,246,0.6)]" />
+          </div>
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/10 text-[10px] font-bold text-violet-300 uppercase tracking-widest flex items-center gap-2 shadow-2xl">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Generating your professional SOP...
+          </div>
+        </div>
+      )}
+
+      {/* Error Banner */}
+      {errorMessage && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300 animate-in fade-in slide-in-from-top-2">
+          <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
+          <p className="text-sm flex-1">{errorMessage}</p>
+          <button
+            onClick={() => setErrorMessage('')}
+            className="shrink-0 hover:text-white transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       <div className="flex items-center gap-4">
         <Link
           href="/dashboard"
@@ -393,11 +428,6 @@ export default function NewSOPPage() {
           <div>
             <h2 className="text-lg font-semibold text-white">{steps[currentStep - 1].title}</h2>
             <p className="text-sm text-slate-400">{steps[currentStep - 1].desc}</p>
-          </div>
-          <div className="ml-auto">
-            <span className="text-xs text-red-400 flex items-center gap-1">
-              <span className="text-red-400">*</span> {t.common.required}
-            </span>
           </div>
         </div>
 

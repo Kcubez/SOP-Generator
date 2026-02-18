@@ -3,7 +3,17 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDropzone } from 'react-dropzone';
-import { ArrowLeft, Upload, FileText, X, Loader2, Sparkles, AlertCircle, Plus } from 'lucide-react';
+import {
+  ArrowLeft,
+  Upload,
+  FileText,
+  X,
+  Loader2,
+  Sparkles,
+  AlertCircle,
+  Plus,
+  Building2,
+} from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -17,6 +27,13 @@ export default function ModifySOPPage() {
   const [loading, setLoading] = useState(false);
   const [parseLoading, setParseLoading] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [businessName, setBusinessName] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const showError = (msg: string) => {
+    setErrorMessage(msg);
+    setTimeout(() => setErrorMessage(''), 8000);
+  };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -60,12 +77,15 @@ export default function ModifySOPPage() {
   });
 
   const handleSubmit = async () => {
-    if ((!uploadedContent.trim() && !uploadedFile) || !problems.trim()) return;
+    if ((!uploadedContent.trim() && !uploadedFile) || !problems.trim() || !businessName.trim())
+      return;
     setLoading(true);
+    setErrorMessage('');
     try {
       // Use FormData to avoid JSON body size limits on Vercel
       const formData = new FormData();
       formData.append('type', 'MODIFIED');
+      formData.append('businessName', businessName);
       formData.append('problems', problems);
       formData.append('additionalReq', additionalReq || '');
       if (uploadedFile) {
@@ -84,24 +104,50 @@ export default function ModifySOPPage() {
       } else {
         const errCode = data.error;
         if (errCode === 'NO_API_KEY') {
-          alert(t.apiErrors.noApiKey);
+          showError(t.apiErrors.noApiKey);
         } else if (errCode === 'API_LIMIT_REACHED') {
-          alert(t.apiErrors.limitReached);
+          showError(t.apiErrors.limitReached);
         } else if (errCode === 'INVALID_API_KEY') {
-          alert(t.apiErrors.invalidKey);
+          showError(t.apiErrors.invalidKey);
         } else {
-          alert(data.message || 'Failed to modify SOP');
+          showError(data.message || 'Failed to modify SOP. Please try again.');
         }
       }
     } catch {
-      alert('An error occurred while modifying the SOP');
+      showError('A network error occurred. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 relative">
+      {/* Modification Progress Bar */}
+      {loading && (
+        <div className="fixed top-0 left-0 right-0 z-100 h-1.5 bg-slate-900">
+          <div className="h-full bg-linear-to-right from-violet-500 via-indigo-600 to-blue-500 bg-size-[200%_100%] animate-gradient-x animate-progress-glow relative">
+            <div className="absolute inset-0 shadow-[0_0_15px_rgba(37,99,235,0.6)]" />
+          </div>
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/10 text-[10px] font-bold text-blue-300 uppercase tracking-widest flex items-center gap-2 shadow-2xl">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Improving your document with AI...
+          </div>
+        </div>
+      )}
+
+      {/* Error Banner */}
+      {errorMessage && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300">
+          <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
+          <p className="text-sm flex-1">{errorMessage}</p>
+          <button
+            onClick={() => setErrorMessage('')}
+            className="shrink-0 hover:text-white transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center gap-4">
         <Link
@@ -123,7 +169,9 @@ export default function ModifySOPPage() {
             <Upload className="h-5 w-5 text-indigo-400" />
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-white">{t.modifySop.uploadLabel}</h2>
+            <h2 className="text-lg font-semibold text-white">
+              {t.modifySop.uploadLabel} <span className="text-red-400">*</span>
+            </h2>
             <p className="text-sm text-slate-400">{t.modifySop.uploadDesc}</p>
           </div>
         </div>
@@ -195,6 +243,28 @@ export default function ModifySOPPage() {
         )}
       </div>
 
+      {/* Business Name Section */}
+      <div className="glass-card p-6 sm:p-8">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="h-10 w-10 rounded-xl bg-violet-500/20 flex items-center justify-center">
+            <Building2 className="h-5 w-5 text-violet-400" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-white">
+              {t.modifySop.businessName} <span className="text-red-400">*</span>
+            </h2>
+          </div>
+        </div>
+        <input
+          type="text"
+          value={businessName}
+          onChange={e => setBusinessName(e.target.value)}
+          className="input-field"
+          placeholder={t.modifySop.businessNamePlaceholder}
+          required
+        />
+      </div>
+
       {/* Problems Section */}
       <div className="glass-card p-6 sm:p-8">
         <div className="flex items-center gap-3 mb-6">
@@ -244,7 +314,12 @@ export default function ModifySOPPage() {
         </Link>
         <button
           onClick={handleSubmit}
-          disabled={loading || !uploadedContent.trim() || !problems.trim()}
+          disabled={
+            loading ||
+            (!uploadedContent.trim() && !uploadedFile) ||
+            !problems.trim() ||
+            !businessName.trim()
+          }
           className="btn-primary flex items-center gap-2"
         >
           {loading ? (

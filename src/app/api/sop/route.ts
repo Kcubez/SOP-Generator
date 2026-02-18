@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
         problems: (formData.get('problems') as string) || '',
         additionalReq: (formData.get('additionalReq') as string) || '',
         uploadedSOPContent: (formData.get('uploadedSOPContent') as string) || '',
+        businessName: (formData.get('businessName') as string) || '',
       };
       const file = formData.get('file') as File | null;
       if (file) {
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
     let systemInstruction = '';
 
     if (type === 'NEW') {
-      title = `SOP - ${data.businessName || 'Untitled'} - ${data.purpose?.substring(0, 50) || 'General'}`;
+      title = data.businessName || 'Untitled SOP';
       const prompt = buildNewSOPPrompt(data);
       systemInstruction = NEW_SOP_SYSTEM_INSTRUCTION;
 
@@ -85,7 +86,7 @@ export async function POST(req: NextRequest) {
         config: {
           systemInstruction,
           temperature: 0.7,
-          maxOutputTokens: 12000,
+          maxOutputTokens: 65000,
         },
       });
 
@@ -130,7 +131,7 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({ sop }, { status: 201 });
     } else if (type === 'MODIFIED') {
-      title = `Modified SOP - ${new Date().toLocaleDateString()}`;
+      title = data.businessName || `Modified SOP - ${new Date().toLocaleDateString()}`;
       systemInstruction = MODIFY_SOP_SYSTEM_INSTRUCTION;
 
       let response;
@@ -166,7 +167,7 @@ export async function POST(req: NextRequest) {
           config: {
             systemInstruction,
             temperature: 0.7,
-            maxOutputTokens: 12000,
+            maxOutputTokens: 65000,
           },
         });
       } else {
@@ -178,7 +179,7 @@ export async function POST(req: NextRequest) {
           config: {
             systemInstruction,
             temperature: 0.7,
-            maxOutputTokens: 12000,
+            maxOutputTokens: 65000,
           },
         });
       }
@@ -190,7 +191,7 @@ export async function POST(req: NextRequest) {
           type: 'MODIFIED',
           title: sanitizeForDB(title) || title,
           generatedContent,
-          businessName: null,
+          businessName: sanitizeForDB(data.businessName),
           businessType: null,
           purpose: null,
           progressStartEnd: null,

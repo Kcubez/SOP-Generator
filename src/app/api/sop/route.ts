@@ -3,6 +3,9 @@ import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { GoogleGenAI } from '@google/genai';
 
+// Vercel serverless function config
+export const maxDuration = 60;
+
 // Sanitize strings for PostgreSQL - remove null bytes and other invalid characters
 function sanitizeForDB(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -35,7 +38,37 @@ export async function POST(req: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    const data = await req.json();
+    // Detect content type: FormData (modify with file) or JSON (new SOP)
+    const contentType = req.headers.get('content-type') || '';
+    let data: Record<string, string>;
+    let uploadedFileBuffer: ArrayBuffer | null = null;
+    let uploadedFileName = '';
+    let uploadedFileMimeType = '';
+
+    if (contentType.includes('multipart/form-data')) {
+      // FormData upload (modify flow with file)
+      const formData = await req.formData();
+      data = {
+        type: (formData.get('type') as string) || '',
+        problems: (formData.get('problems') as string) || '',
+        additionalReq: (formData.get('additionalReq') as string) || '',
+        uploadedSOPContent: (formData.get('uploadedSOPContent') as string) || '',
+      };
+      const file = formData.get('file') as File | null;
+      if (file) {
+        uploadedFileBuffer = await file.arrayBuffer();
+        uploadedFileName = file.name;
+        uploadedFileMimeType =
+          file.type ||
+          (file.name.endsWith('.pdf')
+            ? 'application/pdf'
+            : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+      }
+    } else {
+      // JSON body (new SOP flow)
+      data = await req.json();
+    }
+
     const { type } = data;
 
     let title = '';
@@ -100,16 +133,17 @@ export async function POST(req: NextRequest) {
       title = `Modified SOP - ${new Date().toLocaleDateString()}`;
       systemInstruction = MODIFY_SOP_SYSTEM_INSTRUCTION;
 
-      const uploadedContent: string = data.uploadedSOPContent || '';
-      const pdfMatch = uploadedContent.match(/^\[PDF_BASE64:(.+?)\]([\s\S]+)$/);
-      const docxMatch = uploadedContent.match(/^\[DOCX_BASE64:(.+?)\]([\s\S]+)$/);
-
       let response;
 
-      if (pdfMatch) {
-        // Send PDF as inline data to Gemini for native document understanding
-        const base64Data = pdfMatch[2];
+      if (uploadedFileBuffer) {
+        // File was uploaded via FormData — convert to base64 and send to Gemini
+        const bytes = new Uint8Array(uploadedFileBuffer);
+        const base64Data = Buffer.from(bytes).toString('base64');
         const textPrompt = buildModifySOPTextPrompt(data);
+
+        const mimeType = uploadedFileMimeType.includes('pdf')
+          ? 'application/pdf'
+          : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 
         response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
@@ -119,37 +153,7 @@ export async function POST(req: NextRequest) {
               parts: [
                 {
                   inlineData: {
-                    mimeType: 'application/pdf',
-                    data: base64Data,
-                  },
-                },
-                {
-                  text: textPrompt,
-                },
-              ],
-            },
-          ],
-          config: {
-            systemInstruction,
-            temperature: 0.7,
-            maxOutputTokens: 12000,
-          },
-        });
-      } else if (docxMatch) {
-        // Send DOCX as inline data
-        const base64Data = docxMatch[2];
-        const textPrompt = buildModifySOPTextPrompt(data);
-
-        response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  inlineData: {
-                    mimeType:
-                      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    mimeType,
                     data: base64Data,
                   },
                 },
@@ -166,7 +170,7 @@ export async function POST(req: NextRequest) {
           },
         });
       } else {
-        // Plain text content - send as regular prompt
+        // Plain text content (pasted or legacy) — send as regular prompt
         const prompt = buildModifySOPPrompt(data);
         response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
@@ -212,9 +216,7 @@ export async function POST(req: NextRequest) {
           inductionProcess: null,
           updateNotification: null,
           uploadedSOPContent: sanitizeForDB(
-            pdfMatch || docxMatch
-              ? `[File uploaded: ${pdfMatch?.[1] || docxMatch?.[1]}]`
-              : data.uploadedSOPContent
+            uploadedFileBuffer ? `[File uploaded: ${uploadedFileName}]` : data.uploadedSOPContent
           ),
           problems: sanitizeForDB(data.problems),
           additionalReq: sanitizeForDB(data.additionalReq),
@@ -277,7 +279,12 @@ export async function GET() {
     const sops = await prisma.sOP.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      include: {
+      select: {
+        id: true,
+        type: true,
+        title: true,
+        businessName: true,
+        createdAt: true,
         user: {
           select: { name: true, email: true },
         },

@@ -16,6 +16,7 @@ export default function ModifySOPPage() {
   const [additionalReq, setAdditionalReq] = useState('');
   const [loading, setLoading] = useState(false);
   const [parseLoading, setParseLoading] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
@@ -23,34 +24,21 @@ export default function ModifySOPPage() {
     setFileName(file.name);
     setParseLoading(true);
     try {
-      if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
-        // Read PDF as ArrayBuffer and convert to base64 for AI processing
-        const arrayBuffer = await file.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) {
-          binary += String.fromCharCode(bytes[i]);
-        }
-        const base64 = btoa(binary);
-        setUploadedContent(`[PDF_BASE64:${file.name}]${base64}`);
-      } else if (
+      if (
+        file.type === 'application/pdf' ||
+        file.name.endsWith('.pdf') ||
         file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
         file.type === 'application/msword' ||
         file.name.endsWith('.docx') ||
         file.name.endsWith('.doc')
       ) {
-        // Read Word doc as ArrayBuffer and convert to base64
-        const arrayBuffer = await file.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        let binary = '';
-        for (let i = 0; i < bytes.length; i++) {
-          binary += String.fromCharCode(bytes[i]);
-        }
-        const base64 = btoa(binary);
-        setUploadedContent(`[DOCX_BASE64:${file.name}]${base64}`);
+        // Store file reference for FormData upload
+        setUploadedFile(file);
+        setUploadedContent(`[File: ${file.name}]`);
       } else {
         const text = await file.text();
         setUploadedContent(text);
+        setUploadedFile(null);
       }
     } catch {
       setUploadedContent(
@@ -72,18 +60,23 @@ export default function ModifySOPPage() {
   });
 
   const handleSubmit = async () => {
-    if (!uploadedContent.trim() || !problems.trim()) return;
+    if ((!uploadedContent.trim() && !uploadedFile) || !problems.trim()) return;
     setLoading(true);
     try {
+      // Use FormData to avoid JSON body size limits on Vercel
+      const formData = new FormData();
+      formData.append('type', 'MODIFIED');
+      formData.append('problems', problems);
+      formData.append('additionalReq', additionalReq || '');
+      if (uploadedFile) {
+        formData.append('file', uploadedFile);
+      } else {
+        formData.append('uploadedSOPContent', uploadedContent);
+      }
+
       const res = await fetch('/api/sop', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'MODIFIED',
-          uploadedSOPContent: uploadedContent,
-          problems,
-          additionalReq,
-        }),
+        body: formData,
       });
       const data = await res.json();
       if (res.ok) {

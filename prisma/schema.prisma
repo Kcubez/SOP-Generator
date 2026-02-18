@@ -1,0 +1,71 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  password     String
+  role         Role     @default(USER)
+  geminiApiKey String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  sops         SOP[]
+}
+
+model SOP {
+  id                  String   @id @default(cuid())
+  type                SOPType
+  title               String
+  generatedContent    String
+  businessName        String?
+  businessType        String?
+  purpose             String?
+  progressStartEnd    String?
+  scope               String?
+  stakeholders        String?
+  responsibility      String?
+  approvalAuthority   String?
+  stepByStep          String?
+  decisionPoints      String?
+  tools               String?
+  referenceDocuments  String?
+  complianceStandards String?
+  dosAndDonts         String?
+  risks               String?
+  controls            String?
+  expectedOutput      String?
+  kpiMetrics          String?
+  versionNo           String?
+  effectiveDate       String?
+  reviewCycle         String?
+  revisionHistory     String?
+  trainingMethod      String?
+  inductionProcess    String?
+  updateNotification  String?
+  uploadedSOPContent  String?
+  problems            String?
+  additionalReq       String?
+  userId              String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum SOPType {
+  NEW
+  MODIFIED
+}

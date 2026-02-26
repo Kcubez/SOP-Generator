@@ -229,6 +229,27 @@ export default function NewSOPPage() {
 
       // Navigate to the SOP page
       if (sopId) {
+        // Extract just the AI-generated content (strip the SOP ID header and stream markers)
+        const generatedContent = fullText
+          .replace(/^__SOP_ID__:.+\n/, '')
+          .replace(/\n__STREAM_DONE__$/, '')
+          .replace(/\n__ERROR__:.+$/, '')
+          .trim();
+
+        // Save the generated content to DB via a separate PATCH request
+        if (generatedContent) {
+          try {
+            await fetch(`/api/sop/${sopId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ generatedContent }),
+            });
+          } catch {
+            // Content save failed — user can still view/edit on the SOP page
+            console.error('Failed to save SOP content');
+          }
+        }
+
         router.push(`/dashboard/sop/${sopId}`);
       } else {
         showError('SOP was generated but could not be saved. Please try again.');

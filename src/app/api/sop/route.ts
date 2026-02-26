@@ -276,17 +276,8 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Update the DB record with the generated content (best effort)
-          const generatedContent = sanitizeForDB(fullContent) || 'Failed to generate SOP';
-          try {
-            await prisma.sOP.update({
-              where: { id: currentSopId },
-              data: { generatedContent },
-            });
-          } catch (updateErr) {
-            console.error('Failed to update SOP content:', updateErr);
-          }
-
+          // Content save is handled by the CLIENT via a separate PATCH request.
+          // This avoids the function timing out during the DB update.
           controller.enqueue(encoder.encode('\n__STREAM_DONE__'));
           controller.close();
         } catch (error: unknown) {

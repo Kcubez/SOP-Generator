@@ -46,7 +46,6 @@ export async function POST(req: NextRequest) {
     let uploadedFileMimeType = '';
 
     if (contentType.includes('multipart/form-data')) {
-      // FormData upload (modify flow with file)
       const formData = await req.formData();
       data = {
         type: (formData.get('type') as string) || '',
@@ -66,42 +65,144 @@ export async function POST(req: NextRequest) {
             : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
       }
     } else {
-      // JSON body (new SOP flow)
       data = await req.json();
     }
 
     const { type } = data;
-
     let title = '';
-    let systemInstruction = '';
 
-    // ─── Streaming Response ─────────────────────────────────────────────
-    // We use a ReadableStream to send AI-generated content chunk by chunk.
-    // This keeps the connection alive and avoids Vercel's 60s timeout.
-    // After all chunks are sent, we save to DB and send the SOP ID as the final line.
+    // ─── Strategy ──────────────────────────────────────────────────────
+    // 1. Create DB record FIRST with empty content → get the SOP ID
+    // 2. Send SOP ID immediately as the first chunk
+    // 3. Stream AI content chunk-by-chunk (keeps connection alive)
+    // 4. Update DB record with full content at the end (best effort)
+    // This ensures the client always gets the SOP ID, even if the
+    // function times out during the final DB update.
 
     const encoder = new TextEncoder();
     const userId = session.user.id;
 
+    // ─── Pre-create the SOP record ─────────────────────────────────────
+    let sopId: string;
+    try {
+      if (type === 'NEW') {
+        title = data.businessName || 'Untitled SOP';
+        const sop = await prisma.sOP.create({
+          data: {
+            type: 'NEW',
+            title: sanitizeForDB(title) || title,
+            generatedContent: '',
+            businessName: sanitizeForDB(data.businessName),
+            businessType: sanitizeForDB(data.businessType),
+            purpose: sanitizeForDB(data.purpose),
+            progressStartEnd: sanitizeForDB(data.progressStartEnd),
+            scope: sanitizeForDB(data.scope),
+            stakeholders: sanitizeForDB(data.stakeholders),
+            responsibility: sanitizeForDB(data.responsibility),
+            approvalAuthority: sanitizeForDB(data.approvalAuthority),
+            stepByStep: sanitizeForDB(data.stepByStep),
+            decisionPoints: sanitizeForDB(data.decisionPoints),
+            tools: sanitizeForDB(data.tools),
+            referenceDocuments: sanitizeForDB(data.referenceDocuments),
+            complianceStandards: sanitizeForDB(data.complianceStandards),
+            dosAndDonts: sanitizeForDB(data.dosAndDonts),
+            risks: sanitizeForDB(data.risks),
+            controls: sanitizeForDB(data.controls),
+            expectedOutput: sanitizeForDB(data.expectedOutput),
+            kpiMetrics: sanitizeForDB(data.kpiMetrics),
+            versionNo: sanitizeForDB(data.versionNo),
+            effectiveDate: sanitizeForDB(data.effectiveDate),
+            reviewCycle: sanitizeForDB(data.reviewCycle),
+            revisionHistory: sanitizeForDB(data.revisionHistory),
+            trainingMethod: sanitizeForDB(data.trainingMethod),
+            inductionProcess: sanitizeForDB(data.inductionProcess),
+            updateNotification: sanitizeForDB(data.updateNotification),
+            uploadedSOPContent: null,
+            problems: sanitizeForDB(data.problems),
+            additionalReq: sanitizeForDB(data.additionalReq),
+            userId,
+          },
+        });
+        sopId = sop.id;
+      } else if (type === 'MODIFIED') {
+        title = data.businessName || `Modified SOP - ${new Date().toLocaleDateString()}`;
+        const sop = await prisma.sOP.create({
+          data: {
+            type: 'MODIFIED',
+            title: sanitizeForDB(title) || title,
+            generatedContent: '',
+            businessName: sanitizeForDB(data.businessName),
+            businessType: null,
+            purpose: null,
+            progressStartEnd: null,
+            scope: null,
+            stakeholders: null,
+            responsibility: null,
+            approvalAuthority: null,
+            stepByStep: null,
+            decisionPoints: null,
+            tools: null,
+            referenceDocuments: null,
+            complianceStandards: null,
+            dosAndDonts: null,
+            risks: null,
+            controls: null,
+            expectedOutput: null,
+            kpiMetrics: null,
+            versionNo: null,
+            effectiveDate: null,
+            reviewCycle: null,
+            revisionHistory: null,
+            trainingMethod: null,
+            inductionProcess: null,
+            updateNotification: null,
+            uploadedSOPContent: sanitizeForDB(
+              uploadedFileBuffer ? `[File uploaded: ${uploadedFileName}]` : data.uploadedSOPContent
+            ),
+            problems: sanitizeForDB(data.problems),
+            additionalReq: sanitizeForDB(data.additionalReq),
+            userId,
+          },
+        });
+        sopId = sop.id;
+      } else {
+        return NextResponse.json({ error: 'Invalid SOP type' }, { status: 400 });
+      }
+    } catch (dbError) {
+      console.error('Failed to create SOP record:', dbError);
+      return NextResponse.json(
+        { error: 'GENERATION_FAILED', message: 'Failed to create SOP record.' },
+        { status: 500 }
+      );
+    }
+
+    // ─── Stream AI content ─────────────────────────────────────────────
+    const currentSopId = sopId;
+    const currentType = type;
+
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          if (type === 'NEW') {
-            title = data.businessName || 'Untitled SOP';
-            systemInstruction = NEW_SOP_SYSTEM_INSTRUCTION;
+          // Send the SOP ID immediately as the first line
+          controller.enqueue(encoder.encode(`__SOP_ID__:${currentSopId}\n`));
+
+          let systemInst = '';
+          let fullContent = '';
+
+          if (currentType === 'NEW') {
+            systemInst = NEW_SOP_SYSTEM_INSTRUCTION;
             const prompt = buildNewSOPPrompt(data);
 
             const response = await ai.models.generateContentStream({
               model: 'gemini-2.5-flash',
               contents: prompt,
               config: {
-                systemInstruction,
+                systemInstruction: systemInst,
                 temperature: 0.7,
                 maxOutputTokens: 16000,
               },
             });
 
-            let fullContent = '';
             for await (const chunk of response) {
               const text = chunk.text || '';
               if (text) {
@@ -109,56 +210,10 @@ export async function POST(req: NextRequest) {
                 controller.enqueue(encoder.encode(text));
               }
             }
-
-            const generatedContent = sanitizeForDB(fullContent) || 'Failed to generate SOP';
-
-            const sop = await prisma.sOP.create({
-              data: {
-                type: 'NEW',
-                title: sanitizeForDB(title) || title,
-                generatedContent,
-                businessName: sanitizeForDB(data.businessName),
-                businessType: sanitizeForDB(data.businessType),
-                purpose: sanitizeForDB(data.purpose),
-                progressStartEnd: sanitizeForDB(data.progressStartEnd),
-                scope: sanitizeForDB(data.scope),
-                stakeholders: sanitizeForDB(data.stakeholders),
-                responsibility: sanitizeForDB(data.responsibility),
-                approvalAuthority: sanitizeForDB(data.approvalAuthority),
-                stepByStep: sanitizeForDB(data.stepByStep),
-                decisionPoints: sanitizeForDB(data.decisionPoints),
-                tools: sanitizeForDB(data.tools),
-                referenceDocuments: sanitizeForDB(data.referenceDocuments),
-                complianceStandards: sanitizeForDB(data.complianceStandards),
-                dosAndDonts: sanitizeForDB(data.dosAndDonts),
-                risks: sanitizeForDB(data.risks),
-                controls: sanitizeForDB(data.controls),
-                expectedOutput: sanitizeForDB(data.expectedOutput),
-                kpiMetrics: sanitizeForDB(data.kpiMetrics),
-                versionNo: sanitizeForDB(data.versionNo),
-                effectiveDate: sanitizeForDB(data.effectiveDate),
-                reviewCycle: sanitizeForDB(data.reviewCycle),
-                revisionHistory: sanitizeForDB(data.revisionHistory),
-                trainingMethod: sanitizeForDB(data.trainingMethod),
-                inductionProcess: sanitizeForDB(data.inductionProcess),
-                updateNotification: sanitizeForDB(data.updateNotification),
-                uploadedSOPContent: null,
-                problems: sanitizeForDB(data.problems),
-                additionalReq: sanitizeForDB(data.additionalReq),
-                userId,
-              },
-            });
-
-            // Send the SOP ID as the final delimiter
-            controller.enqueue(encoder.encode(`\n__SOP_ID__:${sop.id}`));
-          } else if (type === 'MODIFIED') {
-            title = data.businessName || `Modified SOP - ${new Date().toLocaleDateString()}`;
-            systemInstruction = MODIFY_SOP_SYSTEM_INSTRUCTION;
-
-            let fullContent = '';
+          } else if (currentType === 'MODIFIED') {
+            systemInst = MODIFY_SOP_SYSTEM_INSTRUCTION;
 
             if (uploadedFileBuffer) {
-              // File was uploaded via FormData — convert to base64 and send to Gemini
               const bytes = new Uint8Array(uploadedFileBuffer);
               const base64Data = Buffer.from(bytes).toString('base64');
               const textPrompt = buildModifySOPTextPrompt(data);
@@ -186,7 +241,7 @@ export async function POST(req: NextRequest) {
                   },
                 ],
                 config: {
-                  systemInstruction,
+                  systemInstruction: systemInst,
                   temperature: 0.7,
                   maxOutputTokens: 16000,
                 },
@@ -200,13 +255,12 @@ export async function POST(req: NextRequest) {
                 }
               }
             } else {
-              // Plain text content (pasted or legacy) — send as regular prompt
               const prompt = buildModifySOPPrompt(data);
               const response = await ai.models.generateContentStream({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
                 config: {
-                  systemInstruction,
+                  systemInstruction: systemInst,
                   temperature: 0.7,
                   maxOutputTokens: 16000,
                 },
@@ -220,54 +274,20 @@ export async function POST(req: NextRequest) {
                 }
               }
             }
-
-            const generatedContent = sanitizeForDB(fullContent) || 'Failed to generate SOP';
-
-            const sop = await prisma.sOP.create({
-              data: {
-                type: 'MODIFIED',
-                title: sanitizeForDB(title) || title,
-                generatedContent,
-                businessName: sanitizeForDB(data.businessName),
-                businessType: null,
-                purpose: null,
-                progressStartEnd: null,
-                scope: null,
-                stakeholders: null,
-                responsibility: null,
-                approvalAuthority: null,
-                stepByStep: null,
-                decisionPoints: null,
-                tools: null,
-                referenceDocuments: null,
-                complianceStandards: null,
-                dosAndDonts: null,
-                risks: null,
-                controls: null,
-                expectedOutput: null,
-                kpiMetrics: null,
-                versionNo: null,
-                effectiveDate: null,
-                reviewCycle: null,
-                revisionHistory: null,
-                trainingMethod: null,
-                inductionProcess: null,
-                updateNotification: null,
-                uploadedSOPContent: sanitizeForDB(
-                  uploadedFileBuffer
-                    ? `[File uploaded: ${uploadedFileName}]`
-                    : data.uploadedSOPContent
-                ),
-                problems: sanitizeForDB(data.problems),
-                additionalReq: sanitizeForDB(data.additionalReq),
-                userId,
-              },
-            });
-
-            // Send the SOP ID as the final delimiter
-            controller.enqueue(encoder.encode(`\n__SOP_ID__:${sop.id}`));
           }
 
+          // Update the DB record with the generated content (best effort)
+          const generatedContent = sanitizeForDB(fullContent) || 'Failed to generate SOP';
+          try {
+            await prisma.sOP.update({
+              where: { id: currentSopId },
+              data: { generatedContent },
+            });
+          } catch (updateErr) {
+            console.error('Failed to update SOP content:', updateErr);
+          }
+
+          controller.enqueue(encoder.encode('\n__STREAM_DONE__'));
           controller.close();
         } catch (error: unknown) {
           console.error('SOP generation stream error:', error);
@@ -287,6 +307,13 @@ export async function POST(req: NextRequest) {
             errMsg.includes('403')
           ) {
             errorPayload = '__ERROR__:INVALID_API_KEY';
+          }
+
+          // Clean up the empty SOP record on error
+          try {
+            await prisma.sOP.delete({ where: { id: currentSopId } });
+          } catch {
+            // Ignore cleanup errors
           }
 
           controller.enqueue(encoder.encode(`\n${errorPayload}`));
@@ -530,8 +557,6 @@ Please:
 7. At the very end, include an "AI Suggestions & Recommendations" section with specific, actionable suggestions to solve the problems mentioned and prevent future issues`;
 }
 
-// Used when the SOP document is sent as inline data (PDF/DOCX file)
-// The document content is already attached as inline data, so this prompt only provides the modification context
 function buildModifySOPTextPrompt(data: Record<string, string>): string {
   return `The attached document is an existing SOP that needs to be modified and improved. Please analyze it carefully, identify the problems mentioned below, and generate a complete improved version that addresses all issues.
 

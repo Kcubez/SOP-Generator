@@ -197,11 +197,20 @@ export default function NewSOPPage() {
 
       const decoder = new TextDecoder();
       let fullText = '';
+      let sopId = '';
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
         fullText += decoder.decode(value, { stream: true });
+
+        // Extract SOP ID from the first line (sent immediately by the server)
+        if (!sopId) {
+          const idMatch = fullText.match(/^__SOP_ID__:(.+)\n/);
+          if (idMatch) {
+            sopId = idMatch[1].trim();
+          }
+        }
       }
 
       // Check for error in stream
@@ -218,10 +227,9 @@ export default function NewSOPPage() {
         return;
       }
 
-      // Extract SOP ID from the end of the stream
-      const sopIdMatch = fullText.match(/__SOP_ID__:(.+)$/);
-      if (sopIdMatch) {
-        router.push(`/dashboard/sop/${sopIdMatch[1].trim()}`);
+      // Navigate to the SOP page
+      if (sopId) {
+        router.push(`/dashboard/sop/${sopId}`);
       } else {
         showError('SOP was generated but could not be saved. Please try again.');
       }

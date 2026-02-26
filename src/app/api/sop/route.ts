@@ -75,162 +75,237 @@ export async function POST(req: NextRequest) {
     let title = '';
     let systemInstruction = '';
 
-    if (type === 'NEW') {
-      title = data.businessName || 'Untitled SOP';
-      const prompt = buildNewSOPPrompt(data);
-      systemInstruction = NEW_SOP_SYSTEM_INSTRUCTION;
+    // ─── Streaming Response ─────────────────────────────────────────────
+    // We use a ReadableStream to send AI-generated content chunk by chunk.
+    // This keeps the connection alive and avoids Vercel's 60s timeout.
+    // After all chunks are sent, we save to DB and send the SOP ID as the final line.
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-          systemInstruction,
-          temperature: 0.7,
-          maxOutputTokens: 16000,
-        },
-      });
+    const encoder = new TextEncoder();
+    const userId = session.user.id;
 
-      const generatedContent = sanitizeForDB(response.text) || 'Failed to generate SOP';
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          if (type === 'NEW') {
+            title = data.businessName || 'Untitled SOP';
+            systemInstruction = NEW_SOP_SYSTEM_INSTRUCTION;
+            const prompt = buildNewSOPPrompt(data);
 
-      const sop = await prisma.sOP.create({
-        data: {
-          type: 'NEW',
-          title: sanitizeForDB(title) || title,
-          generatedContent,
-          businessName: sanitizeForDB(data.businessName),
-          businessType: sanitizeForDB(data.businessType),
-          purpose: sanitizeForDB(data.purpose),
-          progressStartEnd: sanitizeForDB(data.progressStartEnd),
-          scope: sanitizeForDB(data.scope),
-          stakeholders: sanitizeForDB(data.stakeholders),
-          responsibility: sanitizeForDB(data.responsibility),
-          approvalAuthority: sanitizeForDB(data.approvalAuthority),
-          stepByStep: sanitizeForDB(data.stepByStep),
-          decisionPoints: sanitizeForDB(data.decisionPoints),
-          tools: sanitizeForDB(data.tools),
-          referenceDocuments: sanitizeForDB(data.referenceDocuments),
-          complianceStandards: sanitizeForDB(data.complianceStandards),
-          dosAndDonts: sanitizeForDB(data.dosAndDonts),
-          risks: sanitizeForDB(data.risks),
-          controls: sanitizeForDB(data.controls),
-          expectedOutput: sanitizeForDB(data.expectedOutput),
-          kpiMetrics: sanitizeForDB(data.kpiMetrics),
-          versionNo: sanitizeForDB(data.versionNo),
-          effectiveDate: sanitizeForDB(data.effectiveDate),
-          reviewCycle: sanitizeForDB(data.reviewCycle),
-          revisionHistory: sanitizeForDB(data.revisionHistory),
-          trainingMethod: sanitizeForDB(data.trainingMethod),
-          inductionProcess: sanitizeForDB(data.inductionProcess),
-          updateNotification: sanitizeForDB(data.updateNotification),
-          uploadedSOPContent: null,
-          problems: sanitizeForDB(data.problems),
-          additionalReq: sanitizeForDB(data.additionalReq),
-          userId: session.user.id,
-        },
-      });
+            const response = await ai.models.generateContentStream({
+              model: 'gemini-2.5-flash',
+              contents: prompt,
+              config: {
+                systemInstruction,
+                temperature: 0.7,
+                maxOutputTokens: 16000,
+              },
+            });
 
-      return NextResponse.json({ sop }, { status: 201 });
-    } else if (type === 'MODIFIED') {
-      title = data.businessName || `Modified SOP - ${new Date().toLocaleDateString()}`;
-      systemInstruction = MODIFY_SOP_SYSTEM_INSTRUCTION;
+            let fullContent = '';
+            for await (const chunk of response) {
+              const text = chunk.text || '';
+              if (text) {
+                fullContent += text;
+                controller.enqueue(encoder.encode(text));
+              }
+            }
 
-      let response;
+            const generatedContent = sanitizeForDB(fullContent) || 'Failed to generate SOP';
 
-      if (uploadedFileBuffer) {
-        // File was uploaded via FormData — convert to base64 and send to Gemini
-        const bytes = new Uint8Array(uploadedFileBuffer);
-        const base64Data = Buffer.from(bytes).toString('base64');
-        const textPrompt = buildModifySOPTextPrompt(data);
+            const sop = await prisma.sOP.create({
+              data: {
+                type: 'NEW',
+                title: sanitizeForDB(title) || title,
+                generatedContent,
+                businessName: sanitizeForDB(data.businessName),
+                businessType: sanitizeForDB(data.businessType),
+                purpose: sanitizeForDB(data.purpose),
+                progressStartEnd: sanitizeForDB(data.progressStartEnd),
+                scope: sanitizeForDB(data.scope),
+                stakeholders: sanitizeForDB(data.stakeholders),
+                responsibility: sanitizeForDB(data.responsibility),
+                approvalAuthority: sanitizeForDB(data.approvalAuthority),
+                stepByStep: sanitizeForDB(data.stepByStep),
+                decisionPoints: sanitizeForDB(data.decisionPoints),
+                tools: sanitizeForDB(data.tools),
+                referenceDocuments: sanitizeForDB(data.referenceDocuments),
+                complianceStandards: sanitizeForDB(data.complianceStandards),
+                dosAndDonts: sanitizeForDB(data.dosAndDonts),
+                risks: sanitizeForDB(data.risks),
+                controls: sanitizeForDB(data.controls),
+                expectedOutput: sanitizeForDB(data.expectedOutput),
+                kpiMetrics: sanitizeForDB(data.kpiMetrics),
+                versionNo: sanitizeForDB(data.versionNo),
+                effectiveDate: sanitizeForDB(data.effectiveDate),
+                reviewCycle: sanitizeForDB(data.reviewCycle),
+                revisionHistory: sanitizeForDB(data.revisionHistory),
+                trainingMethod: sanitizeForDB(data.trainingMethod),
+                inductionProcess: sanitizeForDB(data.inductionProcess),
+                updateNotification: sanitizeForDB(data.updateNotification),
+                uploadedSOPContent: null,
+                problems: sanitizeForDB(data.problems),
+                additionalReq: sanitizeForDB(data.additionalReq),
+                userId,
+              },
+            });
 
-        const mimeType = uploadedFileMimeType.includes('pdf')
-          ? 'application/pdf'
-          : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+            // Send the SOP ID as the final delimiter
+            controller.enqueue(encoder.encode(`\n__SOP_ID__:${sop.id}`));
+          } else if (type === 'MODIFIED') {
+            title = data.businessName || `Modified SOP - ${new Date().toLocaleDateString()}`;
+            systemInstruction = MODIFY_SOP_SYSTEM_INSTRUCTION;
 
-        response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: [
-            {
-              role: 'user',
-              parts: [
-                {
-                  inlineData: {
-                    mimeType,
-                    data: base64Data,
+            let fullContent = '';
+
+            if (uploadedFileBuffer) {
+              // File was uploaded via FormData — convert to base64 and send to Gemini
+              const bytes = new Uint8Array(uploadedFileBuffer);
+              const base64Data = Buffer.from(bytes).toString('base64');
+              const textPrompt = buildModifySOPTextPrompt(data);
+
+              const mimeType = uploadedFileMimeType.includes('pdf')
+                ? 'application/pdf'
+                : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+
+              const response = await ai.models.generateContentStream({
+                model: 'gemini-2.5-flash',
+                contents: [
+                  {
+                    role: 'user',
+                    parts: [
+                      {
+                        inlineData: {
+                          mimeType,
+                          data: base64Data,
+                        },
+                      },
+                      {
+                        text: textPrompt,
+                      },
+                    ],
                   },
+                ],
+                config: {
+                  systemInstruction,
+                  temperature: 0.7,
+                  maxOutputTokens: 16000,
                 },
-                {
-                  text: textPrompt,
+              });
+
+              for await (const chunk of response) {
+                const text = chunk.text || '';
+                if (text) {
+                  fullContent += text;
+                  controller.enqueue(encoder.encode(text));
+                }
+              }
+            } else {
+              // Plain text content (pasted or legacy) — send as regular prompt
+              const prompt = buildModifySOPPrompt(data);
+              const response = await ai.models.generateContentStream({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+                config: {
+                  systemInstruction,
+                  temperature: 0.7,
+                  maxOutputTokens: 16000,
                 },
-              ],
-            },
-          ],
-          config: {
-            systemInstruction,
-            temperature: 0.7,
-            maxOutputTokens: 16000,
-          },
-        });
-      } else {
-        // Plain text content (pasted or legacy) — send as regular prompt
-        const prompt = buildModifySOPPrompt(data);
-        response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: prompt,
-          config: {
-            systemInstruction,
-            temperature: 0.7,
-            maxOutputTokens: 16000,
-          },
-        });
-      }
+              });
 
-      const generatedContent = sanitizeForDB(response.text) || 'Failed to generate SOP';
+              for await (const chunk of response) {
+                const text = chunk.text || '';
+                if (text) {
+                  fullContent += text;
+                  controller.enqueue(encoder.encode(text));
+                }
+              }
+            }
 
-      const sop = await prisma.sOP.create({
-        data: {
-          type: 'MODIFIED',
-          title: sanitizeForDB(title) || title,
-          generatedContent,
-          businessName: sanitizeForDB(data.businessName),
-          businessType: null,
-          purpose: null,
-          progressStartEnd: null,
-          scope: null,
-          stakeholders: null,
-          responsibility: null,
-          approvalAuthority: null,
-          stepByStep: null,
-          decisionPoints: null,
-          tools: null,
-          referenceDocuments: null,
-          complianceStandards: null,
-          dosAndDonts: null,
-          risks: null,
-          controls: null,
-          expectedOutput: null,
-          kpiMetrics: null,
-          versionNo: null,
-          effectiveDate: null,
-          reviewCycle: null,
-          revisionHistory: null,
-          trainingMethod: null,
-          inductionProcess: null,
-          updateNotification: null,
-          uploadedSOPContent: sanitizeForDB(
-            uploadedFileBuffer ? `[File uploaded: ${uploadedFileName}]` : data.uploadedSOPContent
-          ),
-          problems: sanitizeForDB(data.problems),
-          additionalReq: sanitizeForDB(data.additionalReq),
-          userId: session.user.id,
-        },
-      });
+            const generatedContent = sanitizeForDB(fullContent) || 'Failed to generate SOP';
 
-      return NextResponse.json({ sop }, { status: 201 });
-    }
+            const sop = await prisma.sOP.create({
+              data: {
+                type: 'MODIFIED',
+                title: sanitizeForDB(title) || title,
+                generatedContent,
+                businessName: sanitizeForDB(data.businessName),
+                businessType: null,
+                purpose: null,
+                progressStartEnd: null,
+                scope: null,
+                stakeholders: null,
+                responsibility: null,
+                approvalAuthority: null,
+                stepByStep: null,
+                decisionPoints: null,
+                tools: null,
+                referenceDocuments: null,
+                complianceStandards: null,
+                dosAndDonts: null,
+                risks: null,
+                controls: null,
+                expectedOutput: null,
+                kpiMetrics: null,
+                versionNo: null,
+                effectiveDate: null,
+                reviewCycle: null,
+                revisionHistory: null,
+                trainingMethod: null,
+                inductionProcess: null,
+                updateNotification: null,
+                uploadedSOPContent: sanitizeForDB(
+                  uploadedFileBuffer
+                    ? `[File uploaded: ${uploadedFileName}]`
+                    : data.uploadedSOPContent
+                ),
+                problems: sanitizeForDB(data.problems),
+                additionalReq: sanitizeForDB(data.additionalReq),
+                userId,
+              },
+            });
+
+            // Send the SOP ID as the final delimiter
+            controller.enqueue(encoder.encode(`\n__SOP_ID__:${sop.id}`));
+          }
+
+          controller.close();
+        } catch (error: unknown) {
+          console.error('SOP generation stream error:', error);
+          const errMsg = error instanceof Error ? error.message : String(error);
+
+          let errorPayload = '__ERROR__:GENERATION_FAILED';
+          if (
+            errMsg.includes('429') ||
+            errMsg.includes('quota') ||
+            errMsg.includes('RESOURCE_EXHAUSTED') ||
+            errMsg.includes('rate limit')
+          ) {
+            errorPayload = '__ERROR__:API_LIMIT_REACHED';
+          } else if (
+            errMsg.includes('API_KEY_INVALID') ||
+            errMsg.includes('401') ||
+            errMsg.includes('403')
+          ) {
+            errorPayload = '__ERROR__:INVALID_API_KEY';
+          }
+
+          controller.enqueue(encoder.encode(`\n${errorPayload}`));
+          controller.close();
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Transfer-Encoding': 'chunked',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
+    });
   } catch (error: unknown) {
     console.error('SOP generation error:', error);
 
-    // Handle API quota/rate limit errors
     const errMsg = error instanceof Error ? error.message : String(error);
     if (
       errMsg.includes('429') ||
@@ -255,23 +330,6 @@ export async function POST(req: NextRequest) {
           message: 'Your Gemini API key is invalid. Please update your API key.',
         },
         { status: 401 }
-      );
-    }
-
-    // Handle timeout errors
-    if (
-      errMsg.includes('FUNCTION_INVOCATION_TIMEOUT') ||
-      errMsg.includes('Task timed out') ||
-      errMsg.includes('timeout') ||
-      errMsg.includes('ECONNRESET')
-    ) {
-      return NextResponse.json(
-        {
-          error: 'TIMEOUT',
-          message:
-            'SOP generation took too long. Please try again with simpler inputs or fewer details.',
-        },
-        { status: 504 }
       );
     }
 

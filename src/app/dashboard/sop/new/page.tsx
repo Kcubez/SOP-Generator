@@ -171,10 +171,10 @@ export default function NewSOPPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, type: 'NEW' }),
       });
-      const data = await res.json();
-      if (res.ok) {
-        router.push(`/dashboard/sop/${data.sop.id}`);
-      } else {
+
+      // Handle non-streaming error responses (e.g., 401, 400)
+      if (!res.ok && res.headers.get('content-type')?.includes('application/json')) {
+        const data = await res.json();
         const errCode = data.error;
         if (errCode === 'NO_API_KEY') {
           showError(t.apiErrors.noApiKey);
@@ -185,6 +185,45 @@ export default function NewSOPPage() {
         } else {
           showError(data.message || 'Failed to generate SOP. Please try again.');
         }
+        return;
+      }
+
+      // Read the streaming response
+      const reader = res.body?.getReader();
+      if (!reader) {
+        showError('Failed to read response stream.');
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let fullText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        fullText += decoder.decode(value, { stream: true });
+      }
+
+      // Check for error in stream
+      if (fullText.includes('__ERROR__:')) {
+        const errorMatch = fullText.match(/__ERROR__:(\w+)/);
+        const errCode = errorMatch?.[1] || 'GENERATION_FAILED';
+        if (errCode === 'API_LIMIT_REACHED') {
+          showError(t.apiErrors.limitReached);
+        } else if (errCode === 'INVALID_API_KEY') {
+          showError(t.apiErrors.invalidKey);
+        } else {
+          showError('Failed to generate SOP. Please try again.');
+        }
+        return;
+      }
+
+      // Extract SOP ID from the end of the stream
+      const sopIdMatch = fullText.match(/__SOP_ID__:(.+)$/);
+      if (sopIdMatch) {
+        router.push(`/dashboard/sop/${sopIdMatch[1].trim()}`);
+      } else {
+        showError('SOP was generated but could not be saved. Please try again.');
       }
     } catch {
       showError('A network error occurred. Please check your connection and try again.');

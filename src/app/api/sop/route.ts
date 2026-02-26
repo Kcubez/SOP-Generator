@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { GoogleGenAI } from '@google/genai';
 
 // Vercel serverless function config
-export const maxDuration = 60;
+export const maxDuration = 60; // Vercel Hobby plan max
 
 // Sanitize strings for PostgreSQL - remove null bytes and other invalid characters
 function sanitizeForDB(value: string | null | undefined): string | null {
@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
         config: {
           systemInstruction,
           temperature: 0.7,
-          maxOutputTokens: 65000,
+          maxOutputTokens: 16000,
         },
       });
 
@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
           config: {
             systemInstruction,
             temperature: 0.7,
-            maxOutputTokens: 65000,
+            maxOutputTokens: 16000,
           },
         });
       } else {
@@ -179,7 +179,7 @@ export async function POST(req: NextRequest) {
           config: {
             systemInstruction,
             temperature: 0.7,
-            maxOutputTokens: 65000,
+            maxOutputTokens: 16000,
           },
         });
       }
@@ -255,6 +255,23 @@ export async function POST(req: NextRequest) {
           message: 'Your Gemini API key is invalid. Please update your API key.',
         },
         { status: 401 }
+      );
+    }
+
+    // Handle timeout errors
+    if (
+      errMsg.includes('FUNCTION_INVOCATION_TIMEOUT') ||
+      errMsg.includes('Task timed out') ||
+      errMsg.includes('timeout') ||
+      errMsg.includes('ECONNRESET')
+    ) {
+      return NextResponse.json(
+        {
+          error: 'TIMEOUT',
+          message:
+            'SOP generation took too long. Please try again with simpler inputs or fewer details.',
+        },
+        { status: 504 }
       );
     }
 

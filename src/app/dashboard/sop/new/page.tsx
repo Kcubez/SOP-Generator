@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
+import LanguageDropdown from '@/components/LanguageDropdown';
 
 export default function NewSOPPage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function NewSOPPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [outputLanguage, setOutputLanguage] = useState<'english' | 'myanmar'>('english');
   const [formData, setFormData] = useState({
     businessName: '',
     businessType: '',
@@ -169,7 +171,7 @@ export default function NewSOPPage() {
       const res = await fetch('/api/sop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...formData, type: 'NEW' }),
+        body: JSON.stringify({ ...formData, type: 'NEW', outputLanguage }),
       });
 
       // Handle non-streaming error responses (e.g., 401, 400)
@@ -308,6 +310,16 @@ export default function NewSOPPage() {
               true
             )}
             {renderField(f.scope, 'scope', f.scopePlaceholder)}
+            {/* Output Language Dropdown */}
+            <LanguageDropdown
+              label={t.newSop.outputLanguage}
+              value={outputLanguage}
+              onChange={setOutputLanguage}
+              options={[
+                { value: 'english', label: t.newSop.outputLanguageEnglish, flag: '🇬🇧' },
+                { value: 'myanmar', label: t.newSop.outputLanguageMyanmar, flag: '🇲🇲' },
+              ]}
+            />
           </div>
         );
       case 2:

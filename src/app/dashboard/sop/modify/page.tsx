@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
+import LanguageDropdown from '@/components/LanguageDropdown';
 
 export default function ModifySOPPage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function ModifySOPPage() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [businessName, setBusinessName] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [outputLanguage, setOutputLanguage] = useState<'english' | 'myanmar'>('english');
 
   const showError = (msg: string) => {
     setErrorMessage(msg);
@@ -88,6 +90,7 @@ export default function ModifySOPPage() {
       formData.append('businessName', businessName);
       formData.append('problems', problems);
       formData.append('additionalReq', additionalReq || '');
+      formData.append('outputLanguage', outputLanguage);
       if (uploadedFile) {
         formData.append('file', uploadedFile);
       } else {
@@ -371,6 +374,19 @@ export default function ModifySOPPage() {
           onChange={e => setAdditionalReq(e.target.value)}
           className="textarea-field min-h-30"
           placeholder={t.modifySop.additionalPlaceholder}
+        />
+      </div>
+
+      {/* Output Language Section */}
+      <div className="glass-card p-6 sm:p-8">
+        <LanguageDropdown
+          label={t.modifySop.outputLanguage}
+          value={outputLanguage}
+          onChange={setOutputLanguage}
+          options={[
+            { value: 'english', label: t.modifySop.outputLanguageEnglish, flag: '🇬🇧' },
+            { value: 'myanmar', label: t.modifySop.outputLanguageMyanmar, flag: '🇲🇲' },
+          ]}
         />
       </div>
 

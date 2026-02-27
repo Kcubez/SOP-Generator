@@ -22,7 +22,7 @@ const mm: Translations = {
     badge: 'AI စနစ်ဖြင့် SOP ထုတ်လုပ်ခြင်း',
     title: 'SOP Generator',
     description:
-      'AI အကူအညီဖြင့် ပရော်ဖက်ရှင်နယ် Standard Operating Procedures များကို မိနစ်ပိုင်းအတွင်း ရေးဆွဲပါ။ SOP အသစ်များ ထုတ်လုပ်ခြင်း သို့မဟုတ် ရှိပြီးသား SOP များကို ပြင်ဆင်ခြင်း ပြုလုပ်နိုင်ပါသည်။',
+      'ပရော်ဖက်ရှင်နယ် Standard Operating Procedures များကို မိနစ်ပိုင်းအတွင်း ရေးဆွဲပါ။ SOP အသစ်များ ထုတ်လုပ်ခြင်း သို့မဟုတ် ရှိပြီးသား SOP များကို ပြင်ဆင်ခြင်း ပြုလုပ်နိုင်ပါသည်။',
     signInBtn: 'ဝင်မည်',
     generateTitle: 'SOP အသစ် ရေးဆွဲမည်',
     generateDesc:
@@ -72,7 +72,7 @@ const mm: Translations = {
   dashboard: {
     welcome: 'ပြန်လည်ကြိုဆိုပါတယ်',
     description:
-      'AI အကူအညီဖြင့် ပရော်ဖက်ရှင်နယ် Standard Operating Procedures များကို ရေးဆွဲခြင်း သို့မဟုတ် ပြင်ဆင်ခြင်း ပြုလုပ်နိုင်ပါသည်။',
+      'ပရော်ဖက်ရှင်နယ် Standard Operating Procedures များကို ရေးဆွဲခြင်း သို့မဟုတ် ပြင်ဆင်ခြင်း ပြုလုပ်နိုင်ပါသည်။',
     greetingMorning: 'မင်္ဂလာနံနက်ခင်းပါ',
     greetingAfternoon: 'မင်္ဂလာနေ့လည်ခင်းပါ',
     greetingEvening: 'မင်္ဂလာညနေခင်းပါ',
@@ -89,7 +89,7 @@ const mm: Translations = {
     },
     generateCard: {
       title: 'SOP အသစ် ရေးဆွဲမည်',
-      desc: 'AI အကူအညီဖြင့် SOP စာရွက်စာတမ်းကို ရေးဆွဲပါ။',
+      desc: 'SOP စာရွက်စာတမ်းကို ရေးဆွဲပါ။',
       tags: ['လုပ်ငန်းအချက်အလက်', 'ပါဝင်သူများ', 'လုပ်ငန်းစဉ်', 'KPIs'],
     },
     modifyCard: {
@@ -215,6 +215,9 @@ const mm: Translations = {
       updateNotificationPlaceholder:
         'SOP အပ်ဒိတ်များကို ဝန်ထမ်းများကို ဘယ်လို အကြောင်းကြားမလဲ?\n\nဥပမာ - အီးမေးလ်, အဖွဲ့အစည်းအဝေး, ကြေငြာဘုတ်',
     },
+    outputLanguage: 'SOP ရေးဆွဲမည့် ဘာသာစကား',
+    outputLanguageEnglish: 'English (အင်္ဂလိပ်)',
+    outputLanguageMyanmar: 'မြန်မာ',
     generateBtn: 'SOP ရေးဆွဲမည်',
     generating: 'SOP ရေးဆွဲနေပါသည်...',
   },
@@ -230,6 +233,9 @@ const mm: Translations = {
     problemsPlaceholder: 'ရှိပြီးသား SOP တွင် တွေ့ရှိသော ပြဿနာများကို ဖော်ပြပါ...',
     additionalLabel: 'ထပ်ဆောင်း လိုအပ်ချက်များ',
     additionalPlaceholder: 'ထပ်ဆောင်း လိုအပ်ချက် သို့မဟုတ် ပြင်ဆင်လိုသည်များ...',
+    outputLanguage: 'SOP ရေးဆွဲမည့် ဘာသာစကား',
+    outputLanguageEnglish: 'English (အင်္ဂလိပ်)',
+    outputLanguageMyanmar: 'မြန်မာ',
     submitBtn: 'SOP ပြင်ဆင်မည်',
     modifying: 'SOP ပြင်ဆင်နေပါသည်...',
     orUpload: 'သို့မဟုတ် ဖိုင်တင်ရန်',

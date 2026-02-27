@@ -53,6 +53,7 @@ export async function POST(req: NextRequest) {
         additionalReq: (formData.get('additionalReq') as string) || '',
         uploadedSOPContent: (formData.get('uploadedSOPContent') as string) || '',
         businessName: (formData.get('businessName') as string) || '',
+        outputLanguage: (formData.get('outputLanguage') as string) || 'english',
       };
       const file = formData.get('file') as File | null;
       if (file) {
@@ -189,8 +190,15 @@ export async function POST(req: NextRequest) {
           let systemInst = '';
           let fullContent = '';
 
+          // Build language instruction based on user's selection
+          const outputLanguage = data.outputLanguage || 'english';
+          const languageInstruction =
+            outputLanguage === 'myanmar'
+              ? `\n\nCRITICAL LANGUAGE REQUIREMENT: You MUST write the ENTIRE SOP document in Myanmar (Burmese) language using Myanmar Unicode script. ALL text content including headings, paragraphs, table cells, list items, descriptions, and recommendations MUST be written in Myanmar language. The only exceptions are: proper nouns, company names, technical terms (like ISO 9001, KPI), and HTML tags/attributes. Do NOT write in English except for those exceptions.`
+              : `\n\nLANGUAGE REQUIREMENT: Write the entire SOP document in English.`;
+
           if (currentType === 'NEW') {
-            systemInst = NEW_SOP_SYSTEM_INSTRUCTION;
+            systemInst = NEW_SOP_SYSTEM_INSTRUCTION + languageInstruction;
             const prompt = buildNewSOPPrompt(data);
 
             const response = await ai.models.generateContentStream({
@@ -211,7 +219,7 @@ export async function POST(req: NextRequest) {
               }
             }
           } else if (currentType === 'MODIFIED') {
-            systemInst = MODIFY_SOP_SYSTEM_INSTRUCTION;
+            systemInst = MODIFY_SOP_SYSTEM_INSTRUCTION + languageInstruction;
 
             if (uploadedFileBuffer) {
               const bytes = new Uint8Array(uploadedFileBuffer);

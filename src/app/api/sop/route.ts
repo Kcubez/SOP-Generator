@@ -207,7 +207,7 @@ export async function POST(req: NextRequest) {
               config: {
                 systemInstruction: systemInst,
                 temperature: 0.7,
-                maxOutputTokens: 16000,
+                maxOutputTokens: 65000,
               },
             });
 
@@ -251,7 +251,7 @@ export async function POST(req: NextRequest) {
                 config: {
                   systemInstruction: systemInst,
                   temperature: 0.7,
-                  maxOutputTokens: 16000,
+                  maxOutputTokens: 65000,
                 },
               });
 
@@ -270,7 +270,7 @@ export async function POST(req: NextRequest) {
                 config: {
                   systemInstruction: systemInst,
                   temperature: 0.7,
-                  maxOutputTokens: 16000,
+                  maxOutputTokens: 65000,
                 },
               });
 

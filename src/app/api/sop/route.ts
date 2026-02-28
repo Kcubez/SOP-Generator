@@ -192,12 +192,13 @@ export async function POST(req: NextRequest) {
 
           // Build language instruction based on user's selection
           const outputLanguage = data.outputLanguage || 'english';
-          const languageInstruction =
-            outputLanguage === 'myanmar'
-              ? `\n\nCRITICAL LANGUAGE REQUIREMENT: You MUST write the ENTIRE SOP document in Myanmar (Burmese) language using Myanmar Unicode script. ALL text content including headings, paragraphs, table cells, list items, descriptions, and recommendations MUST be written in Myanmar language. The only exceptions are: proper nouns, company names, technical terms (like ISO 9001, KPI), and HTML tags/attributes. Do NOT write in English except for those exceptions.`
-              : `\n\nLANGUAGE REQUIREMENT: Write the entire SOP document in English.`;
 
           if (currentType === 'NEW') {
+            const languageInstruction =
+              outputLanguage === 'myanmar'
+                ? `\n\nCRITICAL LANGUAGE REQUIREMENT: You MUST write the ENTIRE SOP document in Myanmar (Burmese) language using Myanmar Unicode script. ALL text content including headings, paragraphs, table cells, list items, descriptions, and recommendations MUST be written in Myanmar language. The only exceptions are: proper nouns, company names, technical terms (like ISO 9001, KPI), and HTML tags/attributes. Do NOT write in English except for those exceptions.`
+                : `\n\nLANGUAGE REQUIREMENT: Write the entire SOP document in English.`;
+
             systemInst = NEW_SOP_SYSTEM_INSTRUCTION + languageInstruction;
             const prompt = buildNewSOPPrompt(data);
 
@@ -219,6 +220,11 @@ export async function POST(req: NextRequest) {
               }
             }
           } else if (currentType === 'MODIFIED') {
+            const languageInstruction =
+              outputLanguage === 'myanmar'
+                ? `\n\nCRITICAL LANGUAGE REQUIREMENT: You MUST write the ENTIRE SOP document in Myanmar (Burmese) language using Myanmar Unicode script. ALL text content including headings, paragraphs, table cells, list items, descriptions, and recommendations MUST be written in Myanmar language. The only exceptions are: proper nouns, company names, technical terms (like ISO 9001, KPI), and HTML tags/attributes. Do NOT write in English except for those exceptions.\n\nMANDATORY: You MUST include the "💡 AI အကြံပြုချက်များနှင့် အကြံဉာဏ်များ" section at the very end of the document, written entirely in Myanmar language. This section MUST analyze problems, provide actionable suggestions, recommend best practices, suggest preventive measures, and highlight gaps or risks. Do NOT skip this section. Format it with the light blue info background as specified.`
+                : `\n\nLANGUAGE REQUIREMENT: Write the entire SOP document in English.`;
+
             systemInst = MODIFY_SOP_SYSTEM_INSTRUCTION + languageInstruction;
 
             if (uploadedFileBuffer) {

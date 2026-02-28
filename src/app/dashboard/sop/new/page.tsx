@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import GeneratingOverlay from '@/components/GeneratingOverlay';
 import {
   ArrowLeft,
   ArrowRight,
@@ -316,8 +317,8 @@ export default function NewSOPPage() {
               value={outputLanguage}
               onChange={setOutputLanguage}
               options={[
-                { value: 'english', label: t.newSop.outputLanguageEnglish, flag: '🇬🇧' },
-                { value: 'myanmar', label: t.newSop.outputLanguageMyanmar, flag: '🇲🇲' },
+                { value: 'english', label: t.newSop.outputLanguageEnglish, flag: '/flags/en.png' },
+                { value: 'myanmar', label: t.newSop.outputLanguageMyanmar, flag: '/flags/mm.png' },
               ]}
             />
           </div>
@@ -422,18 +423,8 @@ export default function NewSOPPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 relative">
-      {/* Generation Progress Bar */}
-      {loading && (
-        <div className="fixed top-0 left-0 right-0 z-100 h-1.5 bg-slate-900">
-          <div className="h-full bg-linear-to-right from-violet-500 via-fuchsia-500 to-indigo-500 bg-size-[200%_100%] animate-gradient-x animate-progress-glow relative">
-            <div className="absolute inset-0 shadow-[0_0_15px_rgba(139,92,246,0.6)]" />
-          </div>
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-slate-900/80 backdrop-blur-md border border-white/10 text-[10px] font-bold text-violet-300 uppercase tracking-widest flex items-center gap-2 shadow-2xl">
-            <Loader2 className="h-3 w-3 animate-spin" />
-            Generating your professional SOP...
-          </div>
-        </div>
-      )}
+      {/* Generation Overlay */}
+      {loading && <GeneratingOverlay type="new" />}
 
       {/* Error Banner */}
       {errorMessage && (

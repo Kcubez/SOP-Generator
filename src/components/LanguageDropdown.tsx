@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { Globe, ChevronDown, Check } from 'lucide-react';
 
 type LanguageOption = {
   value: 'english' | 'myanmar';
   label: string;
-  flag: string;
+  flag: string; // path to flag image e.g. '/flags/en.png'
 };
 
 interface LanguageDropdownProps {
@@ -52,7 +53,13 @@ export default function LanguageDropdown({
           className="w-full flex items-center justify-between gap-3 bg-[rgba(15,23,42,0.6)] border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-100 font-medium cursor-pointer outline-none transition-all duration-200 hover:border-white/20 focus:border-violet-500/50 focus:shadow-[0_0_0_3px_rgba(139,92,246,0.1)]"
         >
           <span className="flex items-center gap-2.5">
-            <span className="text-lg leading-none">{selected.flag}</span>
+            <Image
+              src={selected.flag}
+              alt={selected.label}
+              width={22}
+              height={16}
+              className="rounded-sm object-cover"
+            />
             <span>{selected.label}</span>
           </span>
           <ChevronDown
@@ -78,7 +85,13 @@ export default function LanguageDropdown({
                 }`}
               >
                 <span className="flex items-center gap-2.5">
-                  <span className="text-lg leading-none">{option.flag}</span>
+                  <Image
+                    src={option.flag}
+                    alt={option.label}
+                    width={22}
+                    height={16}
+                    className="rounded-sm object-cover"
+                  />
                   <span>{option.label}</span>
                 </span>
                 {value === option.value && <Check className="h-4 w-4 text-violet-400" />}

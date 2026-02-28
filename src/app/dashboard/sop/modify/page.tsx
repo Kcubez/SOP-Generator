@@ -41,6 +41,16 @@ export default function ModifySOPPage() {
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
     if (!file) return;
+
+    // Check file size — Vercel has a 4.5MB request body limit
+    const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB
+    if (file.size > MAX_FILE_SIZE) {
+      showError(
+        `File is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum allowed size is 4MB.`
+      );
+      return;
+    }
+
     setFileName(file.name);
     setParseLoading(true);
     try {

@@ -15,6 +15,8 @@ import {
   Search,
   FileText,
   AlertCircle,
+  Pencil,
+  Check,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -43,13 +45,29 @@ export default function AdminDashboardPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
+
+  // Edit modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editPassword, setEditPassword] = useState('');
+  const [showEditPassword, setShowEditPassword] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
+
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const showError = (msg: string) => {
     setErrorMessage(msg);
     setTimeout(() => setErrorMessage(''), 8000);
+  };
+
+  const showSuccess = (msg: string) => {
+    setSuccessMessage(msg);
+    setTimeout(() => setSuccessMessage(''), 4000);
   };
 
   useEffect(() => {
@@ -103,20 +121,47 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleToggleRole = async (userId: string, currentRole: string) => {
-    setUpdatingId(userId);
-    const role = currentRole === 'ADMIN' ? 'USER' : 'ADMIN';
+  const openEditModal = (user: UserData) => {
+    setEditingUser(user);
+    setEditName(user.name);
+    setEditEmail(user.email);
+    setEditPassword('');
+    setShowEditPassword(false);
+    setEditError('');
+    setShowEditModal(true);
+  };
+
+  const handleEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setEditError('');
+    setEditSaving(true);
     try {
-      const res = await fetch(`/api/admin/users/${userId}`, {
+      const body: Record<string, string> = { name: editName, email: editEmail };
+      if (editPassword) body.password = editPassword;
+      const res = await fetch(`/api/admin/users/${editingUser.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role }),
+        body: JSON.stringify(body),
       });
-      if (res.ok) setUsers(prev => prev.map(u => (u.id === userId ? { ...u, role } : u)));
+      if (res.ok) {
+        const data = await res.json();
+        setUsers(prev =>
+          prev.map(u =>
+            u.id === editingUser.id ? { ...u, name: data.user.name, email: data.user.email } : u
+          )
+        );
+        setShowEditModal(false);
+        setEditingUser(null);
+        showSuccess(t.admin.editUserSuccess);
+      } else {
+        const data = await res.json();
+        setEditError(data.error || t.admin.failedUpdate);
+      }
     } catch {
-      showError(t.admin.failedUpdate);
+      setEditError(t.admin.failedUpdate);
     } finally {
-      setUpdatingId(null);
+      setEditSaving(false);
     }
   };
 
@@ -172,6 +217,21 @@ export default function AdminDashboardPage() {
           </button>
         </div>
       )}
+
+      {/* Success Banner */}
+      {successMessage && (
+        <div className="flex items-start gap-3 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
+          <Check className="h-5 w-5 mt-0.5 shrink-0" />
+          <p className="text-sm flex-1">{successMessage}</p>
+          <button
+            onClick={() => setSuccessMessage('')}
+            className="shrink-0 hover:text-white transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div
         className="relative overflow-hidden glass-card p-8"
@@ -296,18 +356,11 @@ export default function AdminDashboardPage() {
                       {user.id !== session?.user.id ? (
                         <>
                           <button
-                            onClick={() => handleToggleRole(user.id, user.role)}
-                            disabled={updatingId === user.id}
-                            className="h-8 px-3 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 hover:text-white hover:bg-white/10 transition-all disabled:opacity-50 flex items-center gap-1"
+                            onClick={() => openEditModal(user)}
+                            className="h-8 px-3 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-1"
                           >
-                            {updatingId === user.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <>
-                                <Shield className="h-3 w-3" />
-                                {user.role === 'ADMIN' ? t.admin.demote : t.admin.promote}
-                              </>
-                            )}
+                            <Pencil className="h-3 w-3" />
+                            {t.admin.edit}
                           </button>
                           <button
                             onClick={() => handleDeleteUser(user.id)}
@@ -440,6 +493,113 @@ export default function AdminDashboardPage() {
                     <>
                       <UserPlus className="h-4 w-4" />
                       {t.admin.createBtn}
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditModal && editingUser && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="glass-card w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-white">{t.admin.editUserTitle}</h2>
+              <button
+                onClick={() => {
+                  setShowEditModal(false);
+                  setEditingUser(null);
+                }}
+                className="h-8 w-8 rounded-lg bg-white/5 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {editError && (
+              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm">
+                {editError}
+              </div>
+            )}
+            <form onSubmit={handleEditUser} className="space-y-4">
+              <div>
+                <label className="form-label">{t.admin.fullName}</label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  className="input-field"
+                  placeholder={t.admin.fullNamePlaceholder}
+                  required
+                />
+              </div>
+              <div>
+                <label className="form-label">{t.admin.email}</label>
+                <input
+                  type="email"
+                  value={editEmail}
+                  onChange={e => setEditEmail(e.target.value)}
+                  className="input-field"
+                  placeholder={t.admin.emailPlaceholder}
+                  required
+                />
+              </div>
+              <div>
+                <label className="form-label">{t.admin.password}</label>
+                <div className="relative">
+                  <input
+                    type={showEditPassword ? 'text' : 'password'}
+                    value={editPassword}
+                    onChange={e => setEditPassword(e.target.value)}
+                    className="input-field pr-10"
+                    placeholder={t.admin.newPasswordPlaceholder}
+                    minLength={6}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowEditPassword(!showEditPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors"
+                  >
+                    {showEditPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">{t.admin.newPasswordHint}</p>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingUser(null);
+                  }}
+                  className="btn-secondary flex-1"
+                >
+                  {t.common.cancel}
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSaving}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-white transition-all"
+                  style={{
+                    background: 'linear-gradient(135deg, #f59e0b, #ea580c)',
+                    boxShadow: '0 4px 16px rgba(245, 158, 11, 0.3)',
+                  }}
+                >
+                  {editSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      {t.admin.saving}
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      {t.admin.saveBtn}
                     </>
                   )}
                 </button>

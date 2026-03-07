@@ -263,7 +263,7 @@ const en = {
   // SOP Detail
   sopDetail: {
     title: 'SOP Details',
-    downloadPdf: 'Download PDF',
+    downloadPdf: 'PDF Export',
     deleteSop: 'Delete SOP',
     createdAt: 'Created at',
     type: 'Type',

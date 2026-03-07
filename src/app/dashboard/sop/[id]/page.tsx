@@ -175,80 +175,205 @@ export default function SOPDetailPage({ params }: { params: Promise<{ id: string
     if (!printRef.current || !sop) return;
     setDownloading(true);
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
+      const content = printRef.current.innerHTML;
+      const title = editedTitle || sop.title;
+      const date = new Date(sop.createdAt).toLocaleDateString();
+      const business = sop.businessName || '';
 
-      const container = document.createElement('div');
-      container.innerHTML = printRef.current.innerHTML;
-      container.style.cssText = `
-        font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-        color: #1e293b;
-        line-height: 1.7;
-        padding: 40px 30px;
-        background: white;
-        font-size: 11pt;
-        max-width: 100%;
-      `;
+      // Open a new window for printing
+      const printWindow = window.open('', '_blank', 'width=900,height=700');
+      if (!printWindow) {
+        showError('Please allow pop-ups for this site to export PDF.');
+        setDownloading(false);
+        return;
+      }
 
-      container.querySelectorAll('h1').forEach(el => {
-        (el as HTMLElement).style.cssText =
-          "font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; font-size: 18pt; font-weight: 700; color: #0f172a; border-bottom: 2px solid #6366f1; padding-bottom: 8px; margin-bottom: 16px; margin-top: 0;";
-      });
-      container.querySelectorAll('h2').forEach(el => {
-        (el as HTMLElement).style.cssText =
-          "font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; font-size: 14pt; font-weight: 600; color: #1e293b; margin-top: 20px; margin-bottom: 10px; border-left: 3px solid #8b5cf6; padding-left: 10px;";
-      });
-      container.querySelectorAll('h3').forEach(el => {
-        (el as HTMLElement).style.cssText =
-          "font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; font-size: 12pt; font-weight: 600; color: #334155; margin-top: 16px; margin-bottom: 8px;";
-      });
-      container.querySelectorAll('p').forEach(el => {
-        (el as HTMLElement).style.cssText =
-          "font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; margin-bottom: 8px; color: #475569; font-size: 11pt; line-height: 1.7;";
-      });
-      container.querySelectorAll('table').forEach(table => {
-        (table as HTMLElement).style.cssText =
-          'width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 10pt; table-layout: fixed; page-break-inside: avoid;';
-      });
-      container.querySelectorAll('th').forEach(th => {
-        (th as HTMLElement).style.cssText =
-          "background-color: #4338ca !important; color: #ffffff !important; padding: 8px 12px; text-align: left; font-weight: 600; font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; font-size: 10pt;";
-      });
-      container.querySelectorAll('td').forEach(td => {
-        (td as HTMLElement).style.cssText =
-          "padding: 6px 12px; border-bottom: 1px solid #e2e8f0; color: #334155; font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; font-size: 10pt; word-wrap: break-word;";
-      });
-      container.querySelectorAll('li').forEach(li => {
-        (li as HTMLElement).style.cssText =
-          "font-family: 'Inter', 'Segoe UI', system-ui, sans-serif; font-size: 11pt; line-height: 1.7; color: #475569; margin-bottom: 4px;";
-      });
+      printWindow.document.write(`<!DOCTYPE html>
+<html lang="my">
+<head>
+  <meta charset="UTF-8">
+  <title>${title}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Myanmar:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ─── Base ──────────────────────────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
-      const fileName = (editedTitle || sop.title)
-        .replace(/[^a-zA-Z0-9\s-]/g, '')
-        .replace(/\s+/g, '_')
-        .substring(0, 60);
+    body {
+      font-family: 'Noto Sans Myanmar', 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      color: #1e293b;
+      line-height: 1.7;
+      font-size: 11pt;
+      background: #fff;
+    }
 
-      const opt = {
-        margin: [15, 15, 15, 15] as [number, number, number, number],
-        filename: `${fileName}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          letterRendering: true,
-          width: 794,
-        },
-        jsPDF: {
-          unit: 'mm' as const,
-          format: 'a4' as const,
-          orientation: 'portrait' as const,
-        },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+    /* ─── Print Container ──────────────────────────── */
+    .print-header {
+      text-align: center;
+      padding-bottom: 16px;
+      margin-bottom: 20px;
+      border-bottom: 3px solid #4338ca;
+    }
+    .print-header h1 {
+      font-size: 18pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }
+    .print-header .meta {
+      font-size: 9pt;
+      color: #64748b;
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+    }
+
+    .print-content {
+      padding: 0 10px;
+    }
+
+    /* ─── Typography ───────────────────────────────── */
+    h1 {
+      font-family: 'Noto Sans Myanmar', 'Inter', 'Segoe UI', system-ui, sans-serif;
+      font-size: 17pt;
+      font-weight: 700;
+      color: #0f172a;
+      border-bottom: 2px solid #6366f1;
+      padding-bottom: 8px;
+      margin-bottom: 14px;
+      margin-top: 0;
+    }
+    h2 {
+      font-family: 'Noto Sans Myanmar', 'Inter', 'Segoe UI', system-ui, sans-serif;
+      font-size: 13pt;
+      font-weight: 600;
+      color: #1e293b;
+      margin-top: 18px;
+      margin-bottom: 8px;
+      border-left: 3px solid #8b5cf6;
+      padding-left: 10px;
+    }
+    h3 {
+      font-family: 'Noto Sans Myanmar', 'Inter', 'Segoe UI', system-ui, sans-serif;
+      font-size: 11.5pt;
+      font-weight: 600;
+      color: #334155;
+      margin-top: 14px;
+      margin-bottom: 6px;
+    }
+    p {
+      margin-bottom: 7px;
+      color: #475569;
+      font-size: 11pt;
+      line-height: 1.7;
+    }
+    strong { color: #1e293b; }
+
+    /* ─── Tables ────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 10px 0;
+      font-size: 10pt;
+      table-layout: fixed;
+      page-break-inside: auto;
+    }
+    tr { page-break-inside: avoid; page-break-after: auto; }
+    thead { display: table-header-group; }
+    th {
+      background-color: #4338ca !important;
+      color: #ffffff !important;
+      padding: 8px 12px;
+      text-align: left;
+      font-weight: 600;
+      font-size: 10pt;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    td {
+      padding: 6px 12px;
+      border-bottom: 1px solid #d1d5db;
+      color: #334155;
+      font-size: 10pt;
+      word-wrap: break-word;
+    }
+    tr:nth-child(even) {
+      background: #f8fafc;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    /* ─── Lists ─────────────────────────────────────── */
+    ul, ol {
+      padding-left: 1.5rem;
+      margin-bottom: 10px;
+    }
+    li {
+      font-size: 11pt;
+      line-height: 1.7;
+      color: #475569;
+      margin-bottom: 3px;
+    }
+
+    /* ─── AI Suggestions Box ────────────────────────── */
+    div[style*="background: #eff6ff"],
+    div[style*="background:#eff6ff"] {
+      background: #eff6ff !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      page-break-inside: avoid;
+    }
+
+    /* ─── Print Settings ───────────────────────────── */
+    @page {
+      size: A4;
+      margin: 15mm 15mm 20mm 15mm;
+    }
+
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .print-header { border-bottom-color: #4338ca !important; }
+      th { background-color: #4338ca !important; color: #fff !important; }
+      tr:nth-child(even) { background: #f8fafc !important; }
+      h1 { border-bottom-color: #6366f1 !important; }
+      h2 { border-left-color: #8b5cf6 !important; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="print-header">
+    <h1 style="border-bottom: none; margin-bottom: 6px; padding-bottom: 0;">${title}</h1>
+    <div class="meta">
+      ${business ? '<span>Business: ' + business + '</span>' : ''}
+      <span>Date: ${date}</span>
+      <span>Generated by SOP Generator</span>
+    </div>
+  </div>
+  <div class="print-content">
+    ${content}
+  </div>
+  <script>
+    // Wait for Google Fonts to fully load before printing
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(function() {
+        setTimeout(function() { window.print(); }, 400);
+      });
+    } else {
+      // Fallback for older browsers
+      window.onload = function() {
+        setTimeout(function() { window.print(); }, 800);
       };
+    }
+  </script>
+</body>
+</html>`);
 
-      await html2pdf().set(opt).from(container).save();
+      printWindow.document.close();
     } catch (error) {
-      console.error('PDF download error:', error);
-      showError('Failed to generate PDF. Please try again.');
+      console.error('PDF export error:', error);
+      showError('Failed to open print dialog. Please try again.');
     } finally {
       setDownloading(false);
     }
@@ -276,10 +401,21 @@ export default function SOPDetailPage({ params }: { params: Promise<{ id: string
   }
 
   const displayBusinessName = sop.businessName || '-';
+  const isContentEmpty = !sop.generatedContent || sop.generatedContent.trim() === '';
 
   return (
     <>
       <div className="max-w-5xl mx-auto space-y-6">
+        {/* Empty Content Warning */}
+        {isContentEmpty && (
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300">
+            <AlertTriangle className="h-5 w-5 mt-0.5 shrink-0" />
+            <p className="text-sm flex-1">
+              This SOP has no generated content. The content may not have been saved properly during
+              generation. Please try generating the SOP again.
+            </p>
+          </div>
+        )}
         {/* Error Banner */}
         {errorMessage && (
           <div className="flex items-start gap-3 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-300">
@@ -346,8 +482,8 @@ export default function SOPDetailPage({ params }: { params: Promise<{ id: string
             <div className="flex items-center gap-2 w-full sm:w-auto">
               <button
                 onClick={handleDownloadPDF}
-                disabled={downloading}
-                className="flex-1 sm:flex-none h-10 px-5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-lg shadow-violet-600/20"
+                disabled={downloading || isContentEmpty}
+                className="flex-1 sm:flex-none h-10 px-5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all shadow-lg shadow-violet-600/20"
               >
                 {downloading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

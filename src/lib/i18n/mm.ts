@@ -265,7 +265,7 @@ const mm: Translations = {
   // SOP Detail
   sopDetail: {
     title: 'SOP အသေးစိတ်',
-    downloadPdf: 'PDF ဒေါင်းလုဒ်',
+    downloadPdf: 'PDF ထုတ်ယူမည်',
     deleteSop: 'SOP ဖျက်မည်',
     createdAt: 'ရေးဆွဲသည့်ရက်',
     type: 'အမျိုးအစား',

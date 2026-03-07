@@ -179,16 +179,41 @@ export default function ModifySOPPage() {
 
         // Save the generated content to DB via a separate PATCH request
         if (generatedContent) {
-          try {
-            await fetch(`/api/sop/${sopId}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ generatedContent }),
-            });
-          } catch {
-            // Content save failed — user can still view/edit on the SOP page
-            console.error('Failed to save SOP content');
+          let saved = false;
+          for (let attempt = 0; attempt < 2; attempt++) {
+            try {
+              const saveRes = await fetch(`/api/sop/${sopId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ generatedContent }),
+              });
+              if (saveRes.ok) {
+                saved = true;
+                break;
+              }
+              console.error(`Save attempt ${attempt + 1} failed: ${saveRes.status}`);
+            } catch (e) {
+              console.error(`Save attempt ${attempt + 1} error:`, e);
+            }
+            // Wait 1s before retry
+            if (attempt === 0) await new Promise(r => setTimeout(r, 1000));
           }
+          if (!saved) {
+            showError(
+              'SOP was generated but content could not be saved. Please try generating again.'
+            );
+            // Clean up the empty record
+            try {
+              await fetch(`/api/sop/${sopId}`, { method: 'DELETE' });
+            } catch {}
+            return;
+          }
+        } else {
+          showError('SOP generation returned empty content. Please try again.');
+          try {
+            await fetch(`/api/sop/${sopId}`, { method: 'DELETE' });
+          } catch {}
+          return;
         }
 
         router.push(`/dashboard/sop/${sopId}`);

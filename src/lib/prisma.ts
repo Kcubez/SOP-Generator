@@ -7,14 +7,24 @@ const globalForPrisma = global as unknown as {
   pool: Pool;
 };
 
+// Use DIRECT_URL for pg Pool to avoid double pooling
+// (Supabase's pooler on port 5432 already does pooling — stacking pg.Pool on top causes timeouts)
+const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL!;
+
 const pool =
   globalForPrisma.pool ||
   new Pool({
-    connectionString: process.env.DATABASE_URL!,
-    max: 10,
-    idleTimeoutMillis: 60000,
-    connectionTimeoutMillis: 10000,
+    connectionString,
+    max: 5, // Keep low for serverless (Vercel)
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 30000, // Increased from 10s to 30s
+    allowExitOnIdle: true, // Let serverless functions clean up
   });
+
+// Handle pool errors gracefully (prevents unhandled rejections)
+pool.on('error', err => {
+  console.error('Database pool error:', err.message);
+});
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.pool = pool;
 

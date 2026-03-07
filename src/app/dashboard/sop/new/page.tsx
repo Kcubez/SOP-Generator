@@ -169,15 +169,15 @@ export default function NewSOPPage() {
     setLoading(true);
     setErrorMessage('');
     try {
+      // Step 1: Create the empty SOP record
       const res = await fetch('/api/sop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...formData, type: 'NEW', outputLanguage }),
       });
 
-      // Handle non-streaming error responses (e.g., 401, 400)
-      if (!res.ok && res.headers.get('content-type')?.includes('application/json')) {
-        const data = await res.json();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         const errCode = data.error;
         if (errCode === 'NO_API_KEY') {
           showError(t.apiErrors.noApiKey);
@@ -188,19 +188,30 @@ export default function NewSOPPage() {
         } else {
           showError(data.message || 'Failed to generate SOP. Please try again.');
         }
+        setLoading(false);
         return;
       }
 
-      // Read the streaming response
-      const reader = res.body?.getReader();
+      const { sopId } = await res.json();
+      if (!sopId) throw new Error('Failed to create SOP record');
+
+      // Step 2: Stream the AI content from Edge route
+      const streamRes = await fetch('/api/sop/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...formData, type: 'NEW', outputLanguage, sopId }),
+      });
+
+      const reader = streamRes.body?.getReader();
       if (!reader) {
         showError('Failed to read response stream.');
+        setLoading(false);
         return;
       }
 
       const decoder = new TextDecoder();
       let fullText = '';
-      let sopId = '';
+      let receivedSopId = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -208,10 +219,10 @@ export default function NewSOPPage() {
         fullText += decoder.decode(value, { stream: true });
 
         // Extract SOP ID from the first line (sent immediately by the server)
-        if (!sopId) {
+        if (!receivedSopId) {
           const idMatch = fullText.match(/^__SOP_ID__:(.+)\n/);
           if (idMatch) {
-            sopId = idMatch[1].trim();
+            receivedSopId = idMatch[1].trim();
           }
         }
       }
@@ -227,11 +238,15 @@ export default function NewSOPPage() {
         } else {
           showError('Failed to generate SOP. Please try again.');
         }
+
+        // Cleanup empty SOP automatically handled by Edge or not, we could add it here
+        fetch(`/api/sop/${sopId}`, { method: 'DELETE' }).catch(console.error);
+        setLoading(false);
         return;
       }
 
       // Navigate to the SOP page
-      if (sopId) {
+      if (sopId || receivedSopId) {
         // Extract just the AI-generated content (strip the SOP ID header and stream markers)
         const generatedContent = fullText
           .replace(/^__SOP_ID__:.+\n/, '')

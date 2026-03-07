@@ -108,14 +108,14 @@ export default function ModifySOPPage() {
         formData.append('uploadedSOPContent', uploadedContent);
       }
 
+      // Step 1: Create the empty SOP record
       const res = await fetch('/api/sop', {
         method: 'POST',
         body: formData,
       });
 
-      // Handle non-streaming error responses (e.g., 401, 400)
-      if (!res.ok && res.headers.get('content-type')?.includes('application/json')) {
-        const data = await res.json();
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         const errCode = data.error;
         if (errCode === 'NO_API_KEY') {
           showError(t.apiErrors.noApiKey);
@@ -126,19 +126,33 @@ export default function ModifySOPPage() {
         } else {
           showError(data.message || 'Failed to modify SOP. Please try again.');
         }
+        setLoading(false);
         return;
       }
 
+      const { sopId } = await res.json();
+      if (!sopId) throw new Error('Failed to create SOP record');
+
+      // Append sopId to formData for the next request
+      formData.append('sopId', sopId);
+
+      // Step 2: Stream the AI content from Edge route
+      const streamRes = await fetch('/api/sop/generate', {
+        method: 'POST',
+        body: formData,
+      });
+
       // Read the streaming response
-      const reader = res.body?.getReader();
+      const reader = streamRes.body?.getReader();
       if (!reader) {
         showError('Failed to read response stream.');
+        setLoading(false);
         return;
       }
 
       const decoder = new TextDecoder();
       let fullText = '';
-      let sopId = '';
+      let receivedSopId = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -146,10 +160,10 @@ export default function ModifySOPPage() {
         fullText += decoder.decode(value, { stream: true });
 
         // Extract SOP ID from the first line (sent immediately by the server)
-        if (!sopId) {
+        if (!receivedSopId) {
           const idMatch = fullText.match(/^__SOP_ID__:(.+)\n/);
           if (idMatch) {
-            sopId = idMatch[1].trim();
+            receivedSopId = idMatch[1].trim();
           }
         }
       }
@@ -165,6 +179,9 @@ export default function ModifySOPPage() {
         } else {
           showError('Failed to modify SOP. Please try again.');
         }
+
+        fetch(`/api/sop/${sopId}`, { method: 'DELETE' }).catch(console.error);
+        setLoading(false);
         return;
       }
 

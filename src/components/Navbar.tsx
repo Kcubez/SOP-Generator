@@ -149,44 +149,44 @@ export default function Navbar() {
                 {profileOpen && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
-                    <div className="absolute right-0 mt-3 w-56 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                      <div className="glass-card overflow-hidden border-white/10 shadow-2xl">
-                        <div className="px-4 py-3 border-b border-white/5 bg-white/5">
+                    <div className="absolute right-0 mt-3 w-64 z-60 animate-in fade-in slide-in-from-top-2 duration-200">
+                      <div className="bg-slate-800/98 backdrop-blur-xl rounded-2xl border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] overflow-hidden">
+                        <div className="px-5 py-4 border-b border-white/5 bg-white/5">
                           <p className="text-sm font-semibold text-white">{session.user.name}</p>
                           <p className="text-[10px] text-slate-400 truncate mt-0.5">
                             {session.user.email}
                           </p>
                         </div>
 
-                        <div className="p-1.5">
+                        <div className="p-2">
                           <button
                             onClick={() => {
                               openApiKeyModal();
                               setProfileOpen(false);
                             }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-all text-left"
+                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-slate-300 hover:text-white hover:bg-white/5 transition-all text-left"
                           >
-                            <div className="h-8 w-8 rounded-lg bg-violet-500/10 flex items-center justify-center">
-                              <Key className="h-4 w-4 text-violet-400" />
+                            <div className="h-10 w-10 rounded-xl bg-violet-500/10 flex items-center justify-center">
+                              <Key className="h-5 w-5 text-violet-400" />
                             </div>
                             <div className="flex-1">
-                              <p className="font-medium text-xs">Gemini API Key</p>
-                              <p className="text-[10px] text-slate-500">
+                              <p className="font-semibold text-sm">Gemini API Key</p>
+                              <p className="text-[11px] text-slate-500">
                                 {maskedKey ? 'Update Key' : 'Not Connected'}
                               </p>
                             </div>
                           </button>
                         </div>
 
-                        <div className="p-1.5 border-t border-white/5">
+                        <div className="p-2 border-t border-white/5">
                           <button
                             onClick={() => signOut({ callbackUrl: '/login' })}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all text-left"
+                            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all text-left"
                           >
-                            <div className="h-8 w-8 rounded-lg bg-red-500/10 flex items-center justify-center">
-                              <LogOut className="h-4 w-4" />
+                            <div className="h-10 w-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                              <LogOut className="h-5 w-5" />
                             </div>
-                            <span className="font-medium text-xs">{t.common.signOut}</span>
+                            <span className="font-semibold text-sm">{t.common.signOut}</span>
                           </button>
                         </div>
                       </div>

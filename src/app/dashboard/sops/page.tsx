@@ -20,6 +20,7 @@ import {
   Plus,
   PenLine,
   Zap,
+  Check,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -41,6 +42,7 @@ export default function SOPsListPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteModalId, setDeleteModalId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const filteredSops = sops.filter(sop => {
     const matchesFilter = filter === 'ALL' || sop.type === filter;
@@ -56,8 +58,22 @@ export default function SOPsListPage() {
     setTimeout(() => setErrorMessage(''), 8000);
   };
 
+  const showSuccess = (msg: string) => {
+    setSuccessMessage(msg);
+    setTimeout(() => setSuccessMessage(''), 4000);
+  };
+
   useEffect(() => {
     fetchSOPs();
+
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.get('deleted') === 'true') {
+        showSuccess('SOP deleted successfully.');
+        const newUrl = window.location.pathname;
+        window.history.replaceState({}, '', newUrl);
+      }
+    }
   }, []);
 
   const fetchSOPs = async () => {
@@ -78,7 +94,10 @@ export default function SOPsListPage() {
     setDeletingId(id);
     try {
       const res = await fetch(`/api/sop/${id}`, { method: 'DELETE' });
-      if (res.ok) setSops(prev => prev.filter(sop => sop.id !== id));
+      if (res.ok) {
+        setSops(prev => prev.filter(sop => sop.id !== id));
+        showSuccess('SOP deleted successfully.');
+      }
     } catch {
       showError('Failed to delete SOP. Please try again.');
     } finally {
@@ -123,6 +142,22 @@ export default function SOPsListPage() {
           <button
             onClick={() => setErrorMessage('')}
             className="shrink-0 hover:text-white transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Success Banner (Toast) */}
+      {successMessage && (
+        <div className="fixed top-24 right-6 z-50 animate-in slide-in-from-top-4 fade-in duration-300 flex items-center gap-3 p-4 rounded-xl bg-slate-800 border border-emerald-500/30 text-emerald-300 shadow-2xl shadow-emerald-500/20 min-w-75">
+          <div className="h-8 w-8 rounded-full bg-emerald-500/20 flex items-center justify-center shrink-0">
+            <Check className="h-4 w-4 text-emerald-400" />
+          </div>
+          <p className="text-sm font-medium flex-1 text-white">{successMessage}</p>
+          <button
+            onClick={() => setSuccessMessage('')}
+            className="shrink-0 p-1 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
           >
             <X className="h-4 w-4" />
           </button>

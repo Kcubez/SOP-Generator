@@ -96,7 +96,7 @@ export default function SOPDetailPage({ params }: { params: Promise<{ id: string
     setDeleting(true);
     try {
       const res = await fetch(`/api/sop/${id}`, { method: 'DELETE' });
-      if (res.ok) router.push('/dashboard/sops');
+      if (res.ok) router.push('/dashboard/sops?deleted=true');
     } catch {
       showError('Failed to delete SOP. Please try again.');
     } finally {

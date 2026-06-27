@@ -6,22 +6,40 @@ import { useRouter } from 'next/navigation';
 import { Shield, Loader2, Eye, EyeOff, Lock, Mail } from 'lucide-react';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { showToast } from '@/components/Toast';
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
     try {
+      // Check subscription status first
+      const checkRes = await fetch('/api/auth/check-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const checkData = await checkRes.json();
+
+      if (checkData.status === 'blocked') {
+        const msg = lang === 'mm' ? checkData.messageMM : checkData.message;
+        if (checkData.reason === 'expired') {
+          showToast(msg, 'error', 8000);
+        } else {
+          showToast(msg, 'warning', 8000);
+        }
+        setLoading(false);
+        return;
+      }
+
       const result = await signIn('credentials', {
         email,
         password,
@@ -29,7 +47,7 @@ export default function AdminLoginPage() {
       });
 
       if (result?.error) {
-        setError(t.adminLogin.invalidCredentials);
+        showToast(t.adminLogin.invalidCredentials, 'error', 5000);
       } else {
         const res = await fetch('/api/auth/session');
         const session = await res.json();
@@ -37,12 +55,12 @@ export default function AdminLoginPage() {
         if (session?.user?.role === 'ADMIN') {
           router.push('/admin');
         } else {
-          setError(t.adminLogin.accessDenied);
+          showToast(t.adminLogin.accessDenied, 'error', 5000);
           await fetch('/api/auth/signout', { method: 'POST' });
         }
       }
     } catch {
-      setError(t.adminLogin.error);
+      showToast(t.adminLogin.error, 'error', 5000);
     } finally {
       setLoading(false);
     }
@@ -73,12 +91,6 @@ export default function AdminLoginPage() {
           <h2 className="text-xl font-semibold text-white mb-6 text-center">
             {t.adminLogin.formTitle}
           </h2>
-
-          {error && (
-            <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
-              {error}
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>

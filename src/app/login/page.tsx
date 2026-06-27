@@ -11,29 +11,46 @@ import {
   Key,
   Mail,
   Lock,
-  AlertCircle,
   ArrowLeft,
 } from 'lucide-react';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { showToast } from '@/components/Toast';
 
 export default function LoginPage() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
     setLoading(true);
 
     try {
+      // Check subscription status first
+      const checkRes = await fetch('/api/auth/check-subscription', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      const checkData = await checkRes.json();
+
+      if (checkData.status === 'blocked') {
+        const msg = lang === 'mm' ? checkData.messageMM : checkData.message;
+        if (checkData.reason === 'expired') {
+          showToast(msg, 'error', 8000);
+        } else {
+          showToast(msg, 'warning', 8000);
+        }
+        setLoading(false);
+        return;
+      }
+
       const result = await signIn('credentials', {
         email,
         password,
@@ -41,7 +58,7 @@ export default function LoginPage() {
       });
 
       if (result?.error) {
-        setError(t.login.invalidCredentials);
+        showToast(t.login.invalidCredentials, 'error', 5000);
       } else {
         // Save API key to database after successful login
         if (apiKey.trim()) {
@@ -58,7 +75,7 @@ export default function LoginPage() {
         router.push('/dashboard');
       }
     } catch {
-      setError(t.login.error);
+      showToast(t.login.error, 'error', 5000);
     } finally {
       setLoading(false);
     }
@@ -96,13 +113,6 @@ export default function LoginPage() {
 
           <h2 className="text-2xl font-bold text-white mb-2">{t.login.title}</h2>
           <p className="text-slate-400 mb-8">{t.login.subtitle}</p>
-
-          {error && (
-            <div className="mb-6 p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-3 animate-in shake-2 duration-500">
-              <AlertCircle className="h-5 w-5 shrink-0" />
-              {error}
-            </div>
-          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-4">

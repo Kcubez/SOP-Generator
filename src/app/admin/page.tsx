@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Pencil,
   Check,
+  Calendar,
 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
@@ -26,7 +27,32 @@ interface UserData {
   email: string;
   role: string;
   createdAt: string;
+  subscriptionStart?: string | null;
+  expiresAt?: string | null;
   _count: { sops: number };
+}
+
+// Convert ISO date string to datetime-local input format (YYYY-MM-DDTHH:MM)
+function toDatetimeLocal(isoString: string | null | undefined): string {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return '';
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+// Format date for display in the table
+function formatDateDisplay(isoString: string | null | undefined): string | null {
+  if (!isoString) return null;
+  const date = new Date(isoString);
+  if (isNaN(date.getTime())) return null;
+  return date.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 export default function AdminDashboardPage() {
@@ -45,6 +71,8 @@ export default function AdminDashboardPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
+  const [newSubscriptionStart, setNewSubscriptionStart] = useState('');
+  const [newExpiresAt, setNewExpiresAt] = useState('');
 
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -55,6 +83,8 @@ export default function AdminDashboardPage() {
   const [showEditPassword, setShowEditPassword] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
+  const [editSubscriptionStart, setEditSubscriptionStart] = useState('');
+  const [editExpiresAt, setEditExpiresAt] = useState('');
 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
@@ -101,6 +131,8 @@ export default function AdminDashboardPage() {
           email: newEmail,
           password: newPassword,
           role: newRole,
+          subscriptionStart: newSubscriptionStart ? new Date(newSubscriptionStart).toISOString() : null,
+          expiresAt: newExpiresAt ? new Date(newExpiresAt).toISOString() : null,
         }),
       });
       if (res.ok) {
@@ -110,6 +142,8 @@ export default function AdminDashboardPage() {
         setNewEmail('');
         setNewPassword('');
         setNewRole('USER');
+        setNewSubscriptionStart('');
+        setNewExpiresAt('');
       } else {
         const data = await res.json();
         setCreateError(data.error || t.admin.failedCreate);
@@ -128,6 +162,8 @@ export default function AdminDashboardPage() {
     setEditPassword('');
     setShowEditPassword(false);
     setEditError('');
+    setEditSubscriptionStart(toDatetimeLocal(user.subscriptionStart));
+    setEditExpiresAt(toDatetimeLocal(user.expiresAt));
     setShowEditModal(true);
   };
 
@@ -137,8 +173,11 @@ export default function AdminDashboardPage() {
     setEditError('');
     setEditSaving(true);
     try {
-      const body: Record<string, string> = { name: editName, email: editEmail };
+      const body: Record<string, string | null> = { name: editName, email: editEmail };
       if (editPassword) body.password = editPassword;
+      body.subscriptionStart = editSubscriptionStart ? new Date(editSubscriptionStart).toISOString() : null;
+      body.expiresAt = editExpiresAt ? new Date(editExpiresAt).toISOString() : null;
+
       const res = await fetch(`/api/admin/users/${editingUser.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -148,7 +187,15 @@ export default function AdminDashboardPage() {
         const data = await res.json();
         setUsers(prev =>
           prev.map(u =>
-            u.id === editingUser.id ? { ...u, name: data.user.name, email: data.user.email } : u
+            u.id === editingUser.id
+              ? {
+                  ...u,
+                  name: data.user.name,
+                  email: data.user.email,
+                  subscriptionStart: data.user.subscriptionStart,
+                  expiresAt: data.user.expiresAt,
+                }
+              : u
           )
         );
         setShowEditModal(false);
@@ -190,6 +237,18 @@ export default function AdminDashboardPage() {
       user.email.toLowerCase().includes(search.toLowerCase());
     return matchesRole && matchesSearch;
   });
+
+  // Check if a user's subscription is expired
+  const isExpired = (user: UserData) => {
+    if (!user.expiresAt) return false;
+    return new Date(user.expiresAt) < new Date();
+  };
+
+  // Check if a user's subscription hasn't started yet
+  const isNotStarted = (user: UserData) => {
+    if (!user.subscriptionStart) return false;
+    return new Date(user.subscriptionStart) > new Date();
+  };
 
   if (loading) {
     return (
@@ -303,6 +362,8 @@ export default function AdminDashboardPage() {
                 <th className="text-left text-slate-400 font-medium px-6 py-4">{t.admin.user}</th>
                 <th className="text-left text-slate-400 font-medium px-6 py-4">{t.admin.role}</th>
                 <th className="text-left text-slate-400 font-medium px-6 py-4">{t.admin.sops}</th>
+                <th className="text-left text-slate-400 font-medium px-6 py-4">{t.admin.subscriptionStart}</th>
+                <th className="text-left text-slate-400 font-medium px-6 py-4">{t.admin.expirationDate}</th>
                 <th className="text-left text-slate-400 font-medium px-6 py-4">{t.admin.joined}</th>
                 <th className="text-right text-slate-400 font-medium px-6 py-4">
                   {t.admin.actions}
@@ -348,6 +409,34 @@ export default function AdminDashboardPage() {
                       {user._count.sops}
                     </span>
                   </td>
+                  <td className="px-6 py-4">
+                    {user.role === 'ADMIN' ? (
+                      <span className="text-xs text-slate-500">—</span>
+                    ) : user.subscriptionStart ? (
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                        <span className={`text-xs ${isNotStarted(user) ? 'text-yellow-400' : 'text-slate-300'}`}>
+                          {formatDateDisplay(user.subscriptionStart)}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-500">{t.admin.notSet}</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {user.role === 'ADMIN' ? (
+                      <span className="text-xs text-amber-400/70">{t.admin.unlimited}</span>
+                    ) : user.expiresAt ? (
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="h-3.5 w-3.5 text-slate-500" />
+                        <span className={`text-xs ${isExpired(user) ? 'text-red-400' : 'text-emerald-400'}`}>
+                          {formatDateDisplay(user.expiresAt)}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-amber-400/70">{t.admin.unlimited}</span>
+                    )}
+                  </td>
                   <td className="px-6 py-4 text-slate-400">
                     {new Date(user.createdAt).toLocaleDateString()}
                   </td>
@@ -389,7 +478,7 @@ export default function AdminDashboardPage() {
       {/* Create Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-md p-6">
+          <div className="glass-card w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-white">{t.admin.addUserTitle}</h2>
               <button
@@ -467,6 +556,29 @@ export default function AdminDashboardPage() {
                   ))}
                 </div>
               </div>
+
+              {/* Subscription Start */}
+              <div>
+                <label className="form-label">{t.admin.subscriptionStart}</label>
+                <input
+                  type="datetime-local"
+                  value={newSubscriptionStart}
+                  onChange={e => setNewSubscriptionStart(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+
+              {/* Expiration Date */}
+              <div>
+                <label className="form-label">{t.admin.expirationDate}</label>
+                <input
+                  type="datetime-local"
+                  value={newExpiresAt}
+                  onChange={e => setNewExpiresAt(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
@@ -505,7 +617,7 @@ export default function AdminDashboardPage() {
       {/* Edit User Modal */}
       {showEditModal && editingUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="glass-card w-full max-w-md p-6">
+          <div className="glass-card w-full max-w-md p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-white">{t.admin.editUserTitle}</h2>
               <button
@@ -571,6 +683,29 @@ export default function AdminDashboardPage() {
                 </div>
                 <p className="text-xs text-slate-500 mt-1">{t.admin.newPasswordHint}</p>
               </div>
+
+              {/* Subscription Start */}
+              <div>
+                <label className="form-label">{t.admin.subscriptionStart}</label>
+                <input
+                  type="datetime-local"
+                  value={editSubscriptionStart}
+                  onChange={e => setEditSubscriptionStart(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+
+              {/* Expiration Date */}
+              <div>
+                <label className="form-label">{t.admin.expirationDate}</label>
+                <input
+                  type="datetime-local"
+                  value={editExpiresAt}
+                  onChange={e => setEditExpiresAt(e.target.value)}
+                  className="input-field"
+                />
+              </div>
+
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"

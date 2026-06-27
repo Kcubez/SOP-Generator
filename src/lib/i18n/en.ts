@@ -312,6 +312,14 @@ const en = {
     failedUpdate: 'Failed to update user',
     failedCreate: 'Failed to create user',
     errorOccurred: 'An error occurred',
+    subscriptionStart: 'Subscription Start',
+    expirationDate: 'Expiration Date',
+    unlimited: 'Unlimited',
+    notSet: 'Not set',
+    subscriptionNotStarted: 'Subscription has not started yet',
+    subscriptionExpired: 'Subscription has expired',
+    expirationMustBeAfterStart: 'Expiration date must be after subscription start date',
+    expirationRequired: 'Expiration date is required for non-admin users',
   },
 };
 

@@ -16,6 +16,8 @@ export async function GET() {
         name: true,
         email: true,
         role: true,
+        subscriptionStart: true,
+        expiresAt: true,
         createdAt: true,
         _count: {
           select: { sops: true },
@@ -38,7 +40,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    const { name, email, password, role } = await req.json();
+    const { name, email, password, role, subscriptionStart, expiresAt } = await req.json();
 
     if (!name || !email || !password) {
       return NextResponse.json({ error: 'Name, email and password are required' }, { status: 400 });
@@ -56,6 +58,34 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email already registered' }, { status: 400 });
     }
 
+    // Parse and validate dates
+    let parsedSubscriptionStart: Date | null = null;
+    let parsedExpiresAt: Date | null = null;
+
+    if (subscriptionStart) {
+      parsedSubscriptionStart = new Date(subscriptionStart);
+      if (isNaN(parsedSubscriptionStart.getTime())) {
+        return NextResponse.json({ error: 'Invalid subscription start date' }, { status: 400 });
+      }
+    }
+
+    if (expiresAt) {
+      parsedExpiresAt = new Date(expiresAt);
+      if (isNaN(parsedExpiresAt.getTime())) {
+        return NextResponse.json({ error: 'Invalid expiration date' }, { status: 400 });
+      }
+    }
+
+    // Validate expiration is after subscription start
+    if (parsedSubscriptionStart && parsedExpiresAt) {
+      if (parsedExpiresAt <= parsedSubscriptionStart) {
+        return NextResponse.json(
+          { error: 'Expiration date must be after subscription start date' },
+          { status: 400 }
+        );
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(password, 12);
 
     const user = await prisma.user.create({
@@ -64,6 +94,8 @@ export async function POST(req: NextRequest) {
         email,
         password: hashedPassword,
         role: role || 'USER',
+        subscriptionStart: parsedSubscriptionStart,
+        expiresAt: parsedExpiresAt,
       },
     });
 
@@ -74,6 +106,8 @@ export async function POST(req: NextRequest) {
           name: user.name,
           email: user.email,
           role: user.role,
+          subscriptionStart: user.subscriptionStart,
+          expiresAt: user.expiresAt,
         },
       },
       { status: 201 }

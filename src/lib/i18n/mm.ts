@@ -314,6 +314,14 @@ const mm: Translations = {
     failedUpdate: 'အသုံးပြုသူ ပြင်ဆင်ခြင်း မအောင်မြင်ပါ',
     failedCreate: 'အသုံးပြုသူ ဖန်တီးခြင်း မအောင်မြင်ပါ',
     errorOccurred: 'အမှားတစ်ခု ဖြစ်ပွားခဲ့ပါသည်',
+    subscriptionStart: 'Subscription စတင်သည့်ရက်',
+    expirationDate: 'သက်တမ်းကုန်ဆုံးမည့်ရက်',
+    unlimited: 'အကန့်အသတ်မရှိ',
+    notSet: 'သတ်မှတ်မထားပါ',
+    subscriptionNotStarted: 'Subscription မစတင်ရသေးပါ',
+    subscriptionExpired: 'Subscription သက်တမ်းကုန်ဆုံးသွားပါပြီ',
+    expirationMustBeAfterStart: 'သက်တမ်းကုန်ဆုံးမည့်ရက်သည် subscription စတင်သည့်ရက်ပြီးနောက် ဖြစ်ရမည်',
+    expirationRequired: 'Admin မဟုတ်သော အသုံးပြုသူများအတွက် သက်တမ်းကုန်ဆုံးမည့်ရက် လိုအပ်ပါသည်',
   },
 } as const;
 

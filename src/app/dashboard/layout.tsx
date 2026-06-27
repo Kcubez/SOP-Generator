@@ -1,20 +1,58 @@
 'use client';
 
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import Navbar from '@/components/Navbar';
 import BottomNav from '@/components/BottomNav';
+import { useLanguage } from '@/contexts/LanguageContext';
+import { showToast } from '@/components/Toast';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const { lang } = useLanguage();
+
+  const checkSubscription = useCallback(async () => {
+    try {
+      const res = await fetch('/api/user/subscription-status');
+      const data = await res.json();
+
+      if (data.status === 'expired') {
+        const msg = lang === 'mm' ? data.messageMM : data.message;
+        showToast(
+          msg || 'Your subscription has expired.',
+          'error',
+          8000
+        );
+        // Wait a moment so the user can see the toast before logout
+        setTimeout(() => {
+          signOut({ callbackUrl: '/login' });
+        }, 2000);
+      }
+    } catch {
+      // Silently fail - don't interrupt the user experience
+    }
+  }, [lang]);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
       router.push('/login');
     }
   }, [status, router]);
+
+  // Check subscription status periodically
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+
+    // Check immediately on mount
+    checkSubscription();
+
+    // Check every 60 seconds
+    const interval = setInterval(checkSubscription, 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [status, checkSubscription]);
 
   if (status === 'loading') {
     return (

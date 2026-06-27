@@ -46,6 +46,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           throw new Error('Invalid password');
         }
 
+        // Check subscription dates (admins are exempt)
+        if (user.role !== 'ADMIN') {
+          const now = new Date();
+
+          if (user.subscriptionStart && now < user.subscriptionStart) {
+            throw new Error('Your subscription has not started yet. Please contact admin.');
+          }
+
+          if (user.expiresAt && now > user.expiresAt) {
+            throw new Error('Your subscription has expired. Please contact admin for renewal.');
+          }
+        }
+
         return {
           id: user.id,
           name: user.name,

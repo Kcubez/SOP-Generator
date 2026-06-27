@@ -13,10 +13,12 @@ model User {
   email        String   @unique
   password     String
   role         Role     @default(USER)
-  geminiApiKey String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  sops         SOP[]
+  geminiApiKey      String?
+  subscriptionStart DateTime?
+  expiresAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  sops              SOP[]
 }
 
 model SOP {
